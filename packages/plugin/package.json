@@ -1,0 +1,6 @@
+{
+  "name": "@project-history/plugin",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Claude Code / Codex plugin: skills, commands, hooks for project decision history"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "project-history",
+  "version": "0.0.0",
+  "description": "Record and query the project's decision history — the why behind choices that code alone doesn't explain.",
+  "skills": ["./skills"],
+  "commands": ["./commands"],
+  "hooks": "./hooks/hooks.json"
+}
