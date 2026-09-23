@@ -29,7 +29,7 @@
 
 **설정 해석**
 - `.history.yml`을 cwd에서 상위로 탐색. 없으면 exit 1 + hint `run init`.
-- 캐시 루트: `$PROJECT_HISTORY_HOME` 또는 `~/.cache/project-history/`.
+- 캐시 루트: `$PROJECT_HISTORY_HOME` 또는 운영체제별 기본 위치. macOS·Linux·Windows의 정확한 기본값과 기존 `~/.cache/project-history/` 표기 이관은 Q05·Q08에서 확정한다.
 - 현재 코드 저장소: `git remote get-url origin`에서 `<org>/<repo>`.
 
 **동시성**
@@ -63,7 +63,7 @@
 소스 번들 생성. 파일로 쓰고 경로와 요약을 반환한다.
 ```json
 {
-  "path": "~/.cache/project-history/bundles/org__api/feat__jwt.md",
+  "path": "<cache-root>/bundles/org__api/feat__jwt.md",
   "sections": {
     "draft": true,
     "transcript": {"sessions": 2, "chars": 8400},
@@ -202,7 +202,7 @@ UserPromptSubmit. 마지막 넛지 이후 실질 diff 발생(`git diff --stat` �
 - 둘 다 없음 → `bundle` 생성 → `gate: block`이면 exit 2 + stderr:
   ```
   [history] No decision draft for branch feat/jwt. Run /history record before creating the PR.
-  Sources collected: ~/.cache/project-history/bundles/org__api/feat__jwt.md
+  Sources collected: <cache-root>/bundles/org__api/feat__jwt.md
   If this branch contains no design decision, run /history skip.
   ```
   `gate: warn`이면 exit 0 + 같은 내용을 `additionalContext`로.

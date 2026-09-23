@@ -17,6 +17,10 @@ hooks/hooks.json, 필요한 실행 연결, hook session-start/user-prompt/pre-to
 
 명령 경로는 기존 설계상 CLAUDE_PLUGIN_ROOT 기준이다. agent 검증 훅은 opt-in이며 기존 문서상 Claude Code 전용이다. 실제 호스트 스키마와 지원 버전 확인 전에는 호환 검증 완료로 표시하지 않는다.
 
+## 운영체제 호환성 (Q05a 확정)
+
+동일한 훅 기능을 macOS·Linux·Windows에서 제공한다. 훅 명령과 내부 프로세스 실행은 POSIX 셸 전용 문법에 의존하지 않으며, 플러그인 루트의 공백·Windows 경로 구분자·실행 파일 확장자·인자 quoting·LF/CRLF 차이를 처리해야 한다. Windows 자체 환경을 호스트별 fixture와 실환경 검증에 포함한다. WSL 지원 표기와 각 호스트의 최소 지원 버전은 Q05에서 별도 확정한다.
+
 ## SessionStart 검사
 
 1. 초안과 코드 PR 상태를 확인한다. auto_save: true이고 연결 PR이 open/merged이면 최소 요건 검증 후 전송한다. false면 제안만 하고 연결 PR이 없으면 로컬 유지한다.
@@ -60,4 +64,4 @@ hooks/hooks.json, 필요한 실행 연결, hook session-start/user-prompt/pre-to
 
 ## 추가 검증 시나리오
 
-각 이벤트 stdin·stdout·stderr·exit code, 대상·비대상 명령, 초안·skip·둘 다 없음, 내부 쓰기 재진입, timeout·오프라인, PR 생성 성공·실패, 훅 미신뢰·비활성 환경의 수동 흐름을 확인한다. 호스트별 실제 fixture와 테스트 범위는 Q05·Q15에서 확정한다.
+각 이벤트 stdin·stdout·stderr·exit code, 대상·비대상 명령, 초안·skip·둘 다 없음, 내부 쓰기 재진입, timeout·오프라인, PR 생성 성공·실패, 훅 미신뢰·비활성 환경의 수동 흐름을 확인한다. Claude Code와 Codex 각각에 대해 macOS·Linux·Windows fixture를 두고, 실제 호스트·운영체제 조합 중 필수 실환경 범위와 최소 버전은 Q05·Q15에서 확정한다.
