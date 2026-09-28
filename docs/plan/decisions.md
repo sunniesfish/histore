@@ -88,9 +88,39 @@ Q12c·Q12d는 사용자 답변 “aa”로 확정했다. 재개방 감지를 위
 
 | ID | 질문 | 제안·선택지 | 상태 |
 |---|---|---|---|
-| Q05a | v1 지원 OS | B 확정: macOS·Linux·Windows를 모두 v1 공식 지원 범위에 포함한다. Windows 자체 환경의 경로·프로세스·락·훅 동작을 구현하고 검증한다. Node·git·gh·호스트의 최소 버전과 WSL의 별도 지원 표기는 후속 결정 | 확정 |
+| Q05a | v1 지원 OS | B 확정: macOS·Linux·Windows를 모두 v1 공식 지원 범위에 포함한다. Windows 자체 환경의 경로·프로세스·락·훅 동작을 구현하고 검증한다. 런타임·도구와 WSL 범위는 Q05b/c에서 확정 | 확정 |
 
 Q05a는 2026-09-23 사용자 답변 “v1 지원은 mac, linux, windows까지 지원해야됨”으로 확정했다. 세 운영체제의 지원은 선언만으로 완료되지 않으며 Q05·Q08·Q10·Q15·Q16에서 플랫폼별 계약과 검증 조합을 정한다.
+
+### Q05 공식 자료 재확인 (2026-09-23)
+
+- Node.js 20은 2026-03-24 EOL이다. 현재 지원 중인 LTS는 22와 24이며 운영 환경은 지원 중인 LTS 사용이 권장된다.
+- Claude Code는 macOS 13+, Windows 10 1809+/Windows Server 2019+, Ubuntu 20.04+, Debian 10+, Alpine Linux 3.19+를 명시한다. Windows 네이티브와 WSL을 모두 지원하고 npm 설치는 Node.js 22+를 요구한다.
+- Codex는 플러그인 루트의 portable `plugin.json`을 권장하고 `.codex-plugin/plugin.json`을 호환 fallback으로 지원한다. 번들 훅은 사용자가 신뢰하기 전까지 실행하지 않으며 `PLUGIN_ROOT`·`PLUGIN_DATA`와 호환용 `CLAUDE_PLUGIN_ROOT`·`CLAUDE_PLUGIN_DATA`를 제공한다.
+- Codex 훅은 Windows 전용 `commandWindows`를 지원한다. Claude Code 플러그인의 훅을 그대로 동일 규약으로 단정하지 않고 호스트별 fixture로 검증해야 한다.
+- GitHub CLI는 세 운영체제용 공식 설치 경로를 제공하지만 제품에 적용할 최소 `git`·`gh` 버전은 별도 근거가 없다. 임의 버전 고정보다 필요한 명령·JSON 필드·인증 상태를 `init check`에서 확인하는 방식을 검토한다.
+
+근거: [Node.js 릴리스](https://nodejs.org/en/about/previous-releases), [Claude Code 설치 요구사항](https://code.claude.com/docs/en/getting-started), [OpenAI 플러그인 패키징](https://developers.openai.com/plugins/build/plugins), [GitHub CLI](https://cli.github.com/).
+
+### 지원 환경 세부 결정
+
+| ID | 질문 | 결정 | 상태 |
+|---|---|---|---|
+| Q05b | 런타임·도구 지원 기준 | A 확정: Node 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. git·gh는 임의 최소 버전을 고정하지 않고 제품이 쓰는 명령·JSON 필드·인증 상태를 init check에서 검사한다. package.json의 Node >=20은 구현 시 수정한다 | 확정 |
+| Q05c | WSL 지원 표기 | A 확정: Windows 네이티브를 필수 지원하고 WSL2를 Linux 실행 환경으로 추가 지원한다. WSL1은 비공식이다 | 확정 |
+| Q05d | Codex 패키징 기준 | A 확정: portable 루트 plugin.json을 기준으로 하고 .codex-plugin은 호환 fallback, .claude-plugin은 Claude Code용으로 유지한다 | 확정 |
+
+Q05b/c/d는 2026-09-23 사용자 답변 “ok”로 세 추천안 A를 모두 확정했다. Node 22·24 이외의 Current/EOL 런타임은 공식 검증 대상이 아니다. capability 검사는 버전 문자열만 비교하지 않고 실제 명령 실행과 필드 확인으로 판정한다.
+
+## 설정 스키마·오류 결정
+
+| ID | 질문 | 결정 | 상태 |
+|---|---|---|---|
+| Q06a | 폐기된 `review` 키 처리 | A 확정: `review`를 제거하고 발견하면 미지 키 검증 오류로 처리한다. 허용 키는 `history_repo`, `write`, `gate`, `auto_save`, `ask`, `agent_hook`, `language`, `watch`다 | 확정 |
+| Q06b | 미지 키 처리 | A 확정: 미지 키는 경고로 무시하지 않고 exit 2 검증 실패로 처리한다. 잘못된 타입과 미지원 enum도 동일하다 | 확정 |
+| Q06c | 설정 없는 상태의 명령 | A 확정: 도움말·버전, `init check/create/config`, `doctor`만 허용한다. `template`을 포함한 나머지는 exit 1과 init 안내를 반환한다 | 확정 |
+
+Q06a/b/c는 2026-09-23 사용자 답변 “aaa”로 확정했다. 출시 전이므로 의미 없는 키의 호환 기간을 만들지 않는다. 설정 파일 없음은 실행 전제 누락(exit 1), 존재하는 설정의 스키마 오류는 검증 실패(exit 2)로 구분한다.
 
 ## 작업 담당 범위와 최근 답변
 
@@ -102,7 +132,9 @@ Q05a는 2026-09-23 사용자 답변 “v1 지원은 mac, linux, windows까지 �
 
 | ID | 질문 | 제안·선택지 | 상태 |
 |---|---|---|---|
-| Q04a | 구현 순서와 첫 사용 가능한 목표 | A 제안: 기반·로컬 초안 → 수동 기록/저장/검색 → 세션 수집·자동 훅 → 과거 PR 보충·질문·PR 쓰기 모드 → 통합 검증·배포. B: 자동 캡처·훅을 먼저 검증하고 저장·조회 확장. 둘 다 v1 범위 유지, 초기 단계는 내부 검증이며 별도 출시 확정 아님 | 답변 대기 |
+| Q06d | `language` 결정 방식 | A 제안: `init config --language <tag>`를 필수로 하고 에이전트가 사용자·팀 언어를 판단해 명시적으로 전달. B: 생략을 허용하고 최근 PR 텍스트를 자동 감지하되 실패 시 `en` | 답변 대기 |
+| Q06e | `watch` glob 계약 | A 제안: 저장소 루트 기준 POSIX glob 배열, `..`·절대 경로 금지, 생략 시 저장소 전체. B: OS 네이티브 경로 구분자를 받고 생략 시 감시 비활성 | 답변 대기 |
+| Q06f | `--dry-run` 부작용 경계 | A 제안: 설정·Git·GitHub 읽기는 허용하되 캐시·락·파일·commit·push·PR·댓글 쓰기는 전부 금지. B: 임시 캐시와 락은 허용하고 원격 쓰기만 금지 | 답변 대기 |
 
 ## 후속 질문
 
@@ -110,8 +142,8 @@ Q05a는 2026-09-23 사용자 답변 “v1 지원은 mac, linux, windows까지 �
 
 | ID | 주제 | 확정할 내용 | 관련 계획 |
 |---|---|---|---|
-| Q04 | 전체 단계 | 수동 기록·조회를 먼저 검증할지, 단계 순서, 중간 출시 지점, v1 유지보수 명령 범위 | 전체 |
-| Q05 | 지원 환경·배포 | macOS·Linux·Windows 지원은 확정. Node·git·gh·호스트 최소 버전, WSL 표기, npm 이름, 배포 경로, 버전 고정·업데이트 | 01·07·08 |
+| Q04 | 전체 단계 | 세부 계약 완료 후 수동 기록·조회를 먼저 검증할지, 단계 순서, 중간 출시 지점, v1 유지보수 명령 범위 | 전체 |
+| Q05 | 지원 환경·배포 | OS, Node·도구 capability, WSL2, Codex 패키징은 확정. npm 이름, 배포 경로, 호스트 버전 고정·업데이트 | 07·08 |
 | Q06 | 설정·오류 | 전체 스키마, 누락·미지 키, 설정 없는 명령, 공통 플래그의 범위 | 01 |
 | Q07 | 엔트리 검증 | 부분 누락 판정·대화 출처 형식 세부, id·날짜·slug, 길이 상한, refs.type, verified_by 자료형, 미지 필드, 자동 채움 순서 | 02 |
 | Q08 | 로컬 식별·수명 | 캐시 경로, 브랜치 인코딩, worktree, rename·detached HEAD, skip 유효 기간, 보존·삭제 | 01·02 |

@@ -14,7 +14,7 @@
 **출력**
 - 데이터를 반환하는 명령은 stdout에 **JSON 한 객체**. 사람이 읽는 마크다운을 반환하는 명령(`show`, `template`, `draft show`)만 예외이며 `--json`으로 구조화 출력 가능.
 - 진단·로그는 stderr. stdout은 절대 오염하지 않는다.
-- 훅 진입점(`hook *`)은 Claude Code/Codex 공통 훅 출력 규약을 따른다 (아래 6절). 두 도구의 stdin·출력 스키마가 같으므로 진입점은 하나다.
+- 훅 진입점(`hook *`)은 Claude Code와 Codex의 입력을 호스트별 adapter에서 공통 내부 이벤트로 정규화한다. 명령 계열은 공유하되 stdin·matcher·출력·종료 의미가 같다고 가정하지 않고 호스트별 응답으로 변환한다(아래 6절).
 
 **종료 코드**
 - `0` 성공
@@ -28,7 +28,8 @@
 - 트랜스크립트 원문 노출. 번들에는 발화 텍스트만 추출한다.
 
 **설정 해석**
-- `.history.yml`을 cwd에서 상위로 탐색. 없으면 exit 1 + hint `run init`.
+- `.history.yml`을 cwd에서 상위로 탐색한다. 없으면 도움말·버전, `init check/create/config`, `doctor`만 허용하고 다른 명령은 exit 1 + hint `run init`이다(Q06c).
+- 설정이 있으면 `history_repo` 필수 여부, 허용 키, 타입과 enum을 검증한다. 미지 키와 제거된 `review`를 포함한 스키마 오류는 exit 2다(Q06a/b).
 - 캐시 루트: `$PROJECT_HISTORY_HOME` 또는 운영체제별 기본 위치. macOS·Linux·Windows의 정확한 기본값과 기존 `~/.cache/project-history/` 표기 이관은 Q05·Q08에서 확정한다.
 - 현재 코드 저장소: `git remote get-url origin`에서 `<org>/<repo>`.
 
@@ -166,15 +167,17 @@ Q13a: 불완전한 기록도 기본 검색에 포함한다. 각 후보에 missin
 새 저장소 생성(`gh repo create`) 후 골격 push, 또는 `--existing`이면 write 권한 확인. 어느 쪽이든 `history.yml`의 `repos`에 현재 코드 저장소 추가.
 `{"repo": "org/api-history", "created": true, "url": "..."}`
 ### `init config --repo <org/name> [--language ko]`
-`.history.yml` 작성. 기본값: `gate: block`, `write: direct`, `auto_save: true`, `ask: manual`, `agent_hook: false`, `language: <detected>`. 기존 `review: manual`은 역할이 정의되지 않아 유지·제거를 Q06에서 결정한다. v1은 ask: auto 동작을 제공하지 않으며, 미지원 설정값 처리 규칙은 Q06에서 확정한다.
+`.history.yml` 작성. `history_repo`에 `--repo` 값을 기록하고 기본값은 `gate: block`, `write: direct`, `auto_save: true`, `ask: manual`, `agent_hook: false`다. `review`는 쓰지 않으며 입력 설정에 있으면 검증 실패다. v1은 `ask: auto`를 지원하지 않는다. `--language`의 필수 여부는 Q06d에서 확정한다.
 
 ### `config get [key]` → 해석된 설정 JSON
+
+전체 조회는 `config`와 각 값의 `sources`(`file` 또는 `default`)를 반환한다. 단일 key 조회와 미존재 key의 오류 형식은 후속 확정한다.
 
 ---
 
 ## 6. 훅 진입점
 
-`hooks/hooks.json`이 호출하는 명령. stdin으로 Claude Code 훅 JSON을 읽고 훅 규약으로 응답한다. 스킬은 이 명령들을 직접 부르지 않는다.
+`hooks/hooks.json`이 호출하는 명령. stdin으로 각 호스트의 훅 JSON을 읽고 host 식별과 이벤트별 adapter를 거쳐 해당 훅 규약으로 응답한다. 공통 비즈니스 로직과 호스트 adapter를 분리하며 스킬은 이 명령들을 직접 부르지 않는다.
 
 ### `hook session-start`
 1. `sessions.jsonl`에 `{session_id, repo, branch, transcript_path, started_at}` 추가

@@ -6,11 +6,13 @@
 
 내부 명령이 같은 방식으로 설정·프로젝트·캐시를 해석하고 결과와 오류를 반환하도록 한다. 공통 실행 계층, 설정 해석, 저장소 식별, 캐시 경로 규약과 그 검증이 필요하다. 소스 파일 분할과 라이브러리는 아직 정하지 않았다.
 
-## 지원 운영체제 (Q05a 확정)
+## 지원 환경 (Q05a/b/c 확정)
 
-v1은 macOS·Linux·Windows를 공식 지원한다. Windows 자체 환경에서 실행되는 경로 탐색, 캐시, 파일 락, 자식 프로세스, 훅 진입점을 구현·검증 범위에 포함한다. WSL은 Linux와 Windows 중 어느 지원 항목으로 별도 표기할지 후속 결정한다.
+v1은 macOS·Linux·Windows를 공식 지원한다. Windows 자체 환경에서 실행되는 경로 탐색, 캐시, 파일 락, 자식 프로세스, 훅 진입점을 구현·검증 범위에 포함한다. WSL2는 Linux 실행 환경으로 추가 지원하고 WSL1은 비공식이다.
 
 공통 계층은 POSIX 전용 경로·셸 문법을 전제로 하지 않는다. 운영체제별 기본 캐시 위치, 경로 구분자·드라이브 문자·UNC 경로·대소문자 처리, 파일 교체와 락의 원자성, 실행 파일 탐색과 인자 전달, LF/CRLF를 명시적인 계약과 테스트 대상으로 둔다.
+
+Node.js는 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. git·gh는 임의 최소 버전을 고정하지 않는다. `init check`가 제품이 사용하는 명령, 필요한 JSON 필드, 인증 상태를 실제로 검사하고 부족한 capability를 구체적으로 반환한다. 현재 package.json의 Node >=20은 구현 시 이 계약에 맞춰 수정한다.
 
 ## 기존 규약에 따른 작업
 
@@ -24,17 +26,39 @@ v1은 macOS·Linux·Windows를 공식 지원한다. Windows 자체 환경에서 
 - PROJECT_HISTORY_HOME 환경변수와 기본 캐시 경로를 해석한다.
 - config get [key]는 해석된 설정을 JSON으로 반환한다.
 
-## 확정이 필요한 상세 계약
+## 남은 상세 계약
 
-1. 설정 없는 경우 init check/create/config와 template 등 어느 명령까지 허용하는가?
-2. history 저장소 주소 키의 정확한 이름, 필수 여부, 전체 YAML 스키마는 무엇인가?
-3. auto_save는 기본 true이며 초안 자동 전송을 제어한다(Q02 확정). 의미가 정의되지 않은 기존 review 키를 유지할지 제거할지, v1 미지원 ask: auto 값의 오류 처리를 어떻게 할지 확정해야 한다.
-4. 감시 경로·언어 감지·미지 키·잘못된 타입·기존 설정 덮어쓰기는 어떻게 처리하는가?
-5. PROJECT_HISTORY_HOME이 없을 때 macOS·Linux·Windows의 기본 캐시 위치를 무엇으로 하고, 기존 ~/.cache 표기를 어떻게 이관하는가?
-6. SSH/HTTPS origin, fork, origin 없음, GitHub Enterprise를 어디까지 지원하는가?
-7. worktree·심볼릭 링크·상위 탐색 경계·브랜치 경로 인코딩과 Windows 드라이브·UNC·경로 대소문자를 어떻게 다루는가?
-8. --dry-run은 네트워크 읽기·캐시 작성·락을 어디까지 허용하는가?
-9. 알 수 없는 명령·플래그, 상충하는 대상 옵션, 누락한 인자의 오류 형식을 어떻게 고정하는가?
+1. `language`를 init의 필수 입력으로 받을지 자동 감지할지 정한다(Q06d).
+2. `watch` glob의 경로 기준·구분자·금지 패턴과 생략 의미를 정한다(Q06e).
+3. `--dry-run`에서 허용할 읽기와 금지할 로컬·원격 부작용을 정한다(Q06f).
+4. `config get <key>`의 미존재 key, 오류 객체 code와 필드 경로 표현을 고정한다.
+5. PROJECT_HISTORY_HOME이 없을 때 macOS·Linux·Windows의 기본 캐시 위치를 정한다(Q08).
+6. SSH/HTTPS origin, fork, origin 없음, GitHub Enterprise를 어디까지 지원하는지 정한다.
+7. worktree·심볼릭 링크·상위 탐색 경계·브랜치 경로 인코딩과 Windows 드라이브·UNC·경로 대소문자를 정한다(Q08).
+8. 알 수 없는 명령·플래그, 상충하는 대상 옵션, 누락한 인자의 오류 형식을 고정한다.
+
+## Q06 확정 설정·오류 계약
+
+| 항목 | 확정 계약 | 후속 미결 |
+|---|---|---|
+| 스키마 | `history_repo` 필수. `write`, `gate`, `auto_save`, `ask`, `agent_hook`, `language`, `watch`만 허용. `review` 제거 | language 입력 방식 Q06d, watch 문법 Q06e |
+| 기본값 | `write: direct`, `gate: block`, `auto_save: true`, `ask: manual`, `agent_hook: false` | language·watch의 생략 동작 Q06d/e |
+| 엄격도 | 미지 키·잘못된 타입·미지원 값은 exit 2. 누락한 선택 키는 기본값 적용 | 오류 객체의 code와 경로 표기 세부 |
+| 설정 없음 | 도움말·버전, `init check/create/config`, `doctor`만 허용. 나머지는 exit 1 + init 안내 | 없음 |
+| 조회 | `config get`은 해석값과 각 값의 출처(default/file)를 JSON으로 반환 | 단일 key의 미존재 응답 형식 |
+
+허용 타입과 값은 다음과 같다.
+
+| 키 | 타입·값 |
+|---|---|
+| `history_repo` | 필수 문자열, GitHub `owner/repo` 형식 |
+| `write` | `direct` 또는 `pr` |
+| `gate` | `block` 또는 `warn` |
+| `auto_save` | boolean |
+| `ask` | v1은 `manual`만 허용 |
+| `agent_hook` | boolean |
+| `language` | 비어 있지 않은 언어 태그. 입력·기본 규칙은 Q06d |
+| `watch` | 문자열 배열. 경로 문법·생략 의미는 Q06e |
 
 ## 검증할 시나리오
 
@@ -46,4 +70,4 @@ v1은 macOS·Linux·Windows를 공식 지원한다. Windows 자체 환경에서 
 - macOS·Linux·Windows에서 동일한 입력이 같은 논리 결과와 종료 코드·출력 스키마를 만드는지 확인.
 - Windows 경로·공백·드라이브·UNC 입력, LF/CRLF, git·gh 자식 프로세스 인자 전달과 파일 락·원자적 교체를 별도 확인.
 
-테스트의 기대값은 미결 정책 확정 후 작성한다. 설정 없는 명령의 허용 범위를 임의로 가정하지 않는다.
+테스트의 나머지 기대값은 Q06d/e/f와 Q08 후속 결정 뒤 작성한다. Q06a/b/c로 확정한 스키마 오류와 설정 없는 명령의 기대값은 바로 fixture로 작성할 수 있다.

@@ -15,11 +15,15 @@ hooks/hooks.json, 필요한 실행 연결, hook session-start/user-prompt/pre-to
 | PreToolUse | gh pr create·원격 git push 전에 초안/skip 게이트 | 20초 |
 | PostToolUse | PR 생성 성공 후 URL을 기록과 연결하고 요약 제안 | 20초 |
 
-명령 경로는 기존 설계상 CLAUDE_PLUGIN_ROOT 기준이다. agent 검증 훅은 opt-in이며 기존 문서상 Claude Code 전용이다. 실제 호스트 스키마와 지원 버전 확인 전에는 호환 검증 완료로 표시하지 않는다.
+기존 설계는 명령 경로를 CLAUDE_PLUGIN_ROOT 기준으로 두었다. Q05d에 따라 Codex는 portable 루트 `plugin.json`을 기준으로 하고 `.codex-plugin/plugin.json`을 호환 fallback으로 유지한다. Claude Code용 `.claude-plugin/plugin.json`도 유지한다. Codex는 `PLUGIN_ROOT`·`PLUGIN_DATA`를 기본으로 제공하고 기존 훅 호환을 위해 `CLAUDE_PLUGIN_ROOT`·`CLAUDE_PLUGIN_DATA`도 제공한다. 공통 스크립트를 공유하되 매니페스트와 launcher는 호스트별 계약을 명시한다.
+
+Codex의 번들 훅은 설치·활성화만으로 신뢰되지 않으며 사용자가 현재 정의를 검토해 신뢰하기 전에는 건너뛴다. command 훅과 Windows 전용 `commandWindows`를 지원한다. Claude Code와 Codex가 비슷한 이벤트를 제공하더라도 입력·출력·matcher·신뢰·지원 handler를 동일하다고 가정하지 않고 호스트별 fixture로 검증한다. agent 검증 훅은 기존 문서상 Claude Code 전용이며 Codex에서는 command 훅으로 대체 가능한 범위만 공통화한다.
+
+근거: [OpenAI 플러그인 패키징](https://developers.openai.com/plugins/build/plugins), [Claude Code 설치 요구사항](https://code.claude.com/docs/en/getting-started).
 
 ## 운영체제 호환성 (Q05a 확정)
 
-동일한 훅 기능을 macOS·Linux·Windows에서 제공한다. 훅 명령과 내부 프로세스 실행은 POSIX 셸 전용 문법에 의존하지 않으며, 플러그인 루트의 공백·Windows 경로 구분자·실행 파일 확장자·인자 quoting·LF/CRLF 차이를 처리해야 한다. Windows 자체 환경을 호스트별 fixture와 실환경 검증에 포함한다. WSL 지원 표기와 각 호스트의 최소 지원 버전은 Q05에서 별도 확정한다.
+동일한 훅 기능을 macOS·Linux·Windows에서 제공한다. 훅 명령과 내부 프로세스 실행은 POSIX 셸 전용 문법에 의존하지 않으며, 플러그인 루트의 공백·Windows 경로 구분자·실행 파일 확장자·인자 quoting·LF/CRLF 차이를 처리해야 한다. Codex는 필요하면 `commandWindows`를 사용한다. Windows 자체 환경을 필수 fixture와 실환경 검증에 포함하고 WSL2는 Linux 조합으로 추가 검증한다. WSL1은 공식 검증 대상이 아니다.
 
 ## SessionStart 검사
 

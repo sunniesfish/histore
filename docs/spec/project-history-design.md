@@ -26,7 +26,7 @@
 - 릴리즈·마일스톤은 저장하지 않는다. 뷰어가 GitHub에서 직접 읽는다.
 - v1에 임베딩 검색 없음 (API 키·로컬 모델 의존이 설치 단순성을 깸). 검색 인터페이스만 고정해 v2에서 교체 가능하게.
 - 구축 순서: 플러그인(스킬 + 훅 + 스크립트) → 저장소 → 뷰어. 앞의 둘만으로 제품이 성립해야 한다.
-- v1 공식 지원 운영체제는 macOS·Linux·Windows다(Q05a). Windows 자체 환경의 경로·캐시·락·프로세스·훅을 구현·검증 범위에 포함한다. 운영체제와 Node·git·gh·호스트의 최소 버전 및 WSL 표기는 후속 확정한다.
+- v1 공식 지원 운영체제는 macOS·Linux·Windows다(Q05a). Windows 자체 환경의 경로·캐시·락·프로세스·훅을 구현·검증 범위에 포함한다. WSL2는 Linux 실행 환경으로 추가 지원하고 WSL1은 비공식이다(Q05c). Node.js는 22 이상을 요구하고 LTS 22·24를 검증하며, git·gh는 필요한 capability를 init check에서 검사한다(Q05b).
 
 ## 3. 히스토리 저장소
 
@@ -307,21 +307,26 @@ skip/<org>/<repo>/<branch>         # 결정 없음 마커
 - `/history ask <질문>` — 6절 조회 파이프라인
 - `/history skip` — 현재 브랜치 "결정 없음" 판정
 
-### 7.5 Codex 지원 (확인 완료, 2026-09-16)
+### 7.5 Codex 지원 (공식 자료 재확인, 2026-09-23)
 
-Codex는 Claude Code와 **같은 훅 스키마**(이벤트명, stdin 필드, exit 2 + stderr, `hookSpecificOutput.additionalContext`)를 쓰고, 플러그인에 번들된 `hooks/hooks.json`을 로드하며, 호환을 위해 `CLAUDE_PLUGIN_ROOT`도 설정한다. 따라서 **하나의 플러그인 폴더로 양쪽을 지원**한다.
+Claude Code와 Codex에서 스킬·스크립트 소스를 공유하되 호스트별 플러그인·훅 계약을 동일하다고 가정하지 않는다. Codex는 플러그인 루트의 portable `plugin.json`을 권장하고 기존 `.codex-plugin/plugin.json`을 호환 fallback으로 지원한다. Codex는 기본 `hooks/hooks.json` 탐색과 command 훅을 지원하며, 번들 훅은 사용자가 정의를 검토하고 신뢰한 뒤에만 실행한다.
 
-- 매니페스트 둘: `.claude-plugin/plugin.json` + `.codex-plugin/plugin.json`. `skills/`, `hooks/hooks.json`, `scripts/`는 공유
-- 훅 명령은 `${CLAUDE_PLUGIN_ROOT}` 기준 경로 사용
+- 공통 소스: `skills/`, `hooks/`, `scripts/`
+- Claude Code 매니페스트: `.claude-plugin/plugin.json`
+- Codex 매니페스트: 루트 `plugin.json` 기본 + `.codex-plugin/plugin.json` 호환 fallback(Q05d)
+- Codex 훅 변수: `PLUGIN_ROOT`·`PLUGIN_DATA`, 기존 플러그인 호환용 `CLAUDE_PLUGIN_ROOT`·`CLAUDE_PLUGIN_DATA`
+- Windows 훅: Codex의 `commandWindows`와 호스트별 launcher를 검토하고 POSIX 셸 의존을 제거
 
 **차이로 인한 설계 조정**
-- `prompt`/`agent` 타입 훅은 Codex에서 파싱만 되고 건너뜀 → opt-in agent 검증 훅은 Claude Code 전용
-- Stop 훅은 JSON 출력만 유효하고 additionalContext 대상 이벤트가 아님 → 넛지를 **UserPromptSubmit**으로 이동 (양쪽에서 additionalContext 지원). 다음 프롬프트 처리 직전에 주입되어 타이밍도 더 낫다
+- Codex는 Claude Code 플러그인의 prompt/agent handler에 의존하지 않으므로 opt-in agent 검증 훅은 Claude Code 전용으로 유지하고 command 훅 범위만 공통화
+- 넛지는 **UserPromptSubmit** command 훅으로 구현하되 양쪽의 matcher·stdin·stdout·종료 코드 fixture를 따로 둔다
 - 플러그인 훅은 설치만으로 신뢰되지 않음. 사용자가 `/hooks`에서 1회 검토·신뢰해야 하고, 훅 정의가 바뀌면(해시) 다시 검토 → init 안내와 README에 명시. 신뢰 전엔 훅 없이(명령만으로) 동작
 - `timeout` 기본값이 600초 → 모든 훅에 timeout 명시 (SessionStart 10, PreToolUse 20, PostToolUse 20, UserPromptSubmit 3)
 - additionalContext 약 2,500토큰 초과 시 파일로 spill → 훅 출력은 짧게 유지 (이미 5줄 제한)
 - `transcript_path` 형식은 안정 인터페이스가 아님 → Codex 트랜스크립트 파서는 best-effort, 실패 시 번들에서 해당 섹션만 생략
 - 스킬 호출은 `$history` 형식. Claude Code의 `arguments` frontmatter는 무시될 수 있으므로 SKILL.md는 인자가 평문으로 오면 첫 단어를 action으로 해석
+
+근거: [OpenAI 플러그인 패키징](https://developers.openai.com/plugins/build/plugins), [Claude Code 설치 요구사항](https://code.claude.com/docs/en/getting-started).
 
 **훅이 아예 없는 상황**(신뢰 전, `[features].hooks=false`, 관리형 정책으로 차단, 기타 도구)에서는 SKILL.md 지침 + 명시적 명령만으로 동작. 강제력과 자동 감지가 없어질 뿐 기능은 같다.
 
@@ -349,13 +354,28 @@ Codex는 Claude Code와 **같은 훅 스키마**(이벤트명, stdin 필드, exi
 
 ## 9. 프로젝트 설정 (`.history.yml`, 프로젝트 저장소에 커밋)
 
-- 히스토리 저장소 주소
-- 게이트 모드 `block | warn`
-- 쓰기 방식 `direct | pr`
-- agent 훅 on/off
-- 질문 게시 `manual` (v1은 개별 승인 필수)
-- 초안 자동 원격 전송 `auto_save: true | false` (기본 true)
-- 감시 경로 (선택)
+```yaml
+history_repo: org/project-history
+write: direct
+gate: block
+auto_save: true
+ask: manual
+agent_hook: false
+language: ko
+watch:
+  - "packages/**"
+```
+
+- `history_repo`: 필수 문자열, GitHub `owner/repo` 형식
+- `write`: `direct | pr`, 기본 `direct`
+- `gate`: `block | warn`, 기본 `block`
+- `auto_save`: boolean, 기본 `true`
+- `ask`: v1은 `manual`만 허용하며 기본 `manual`
+- `agent_hook`: boolean, 기본 `false`
+- `language`: 비어 있지 않은 언어 태그. 입력·생략 규칙은 Q06d에서 확정
+- `watch`: 문자열 배열. glob과 생략 규칙은 Q06e에서 확정
+
+위 키 외에는 허용하지 않는다. 기존 `review` 키는 의미가 없고 출시 전이므로 제거하며 alias나 경고 호환을 제공하지 않는다(Q06a). 미지 키·잘못된 타입·미지원 enum은 exit 2 검증 실패다(Q06b). 설정 파일이 없으면 도움말·버전, `init check/create/config`, `doctor`만 실행하고 나머지는 exit 1과 init 안내를 반환한다(Q06c).
 
 ## 10. 작동 흐름
 

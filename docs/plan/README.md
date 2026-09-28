@@ -59,7 +59,7 @@
 - Q12a/b: 새 결정이 accepted가 되어야 이전 결정을 대체한다. 여러 구현 PR은 전부 머지되어야 자동 accepted로 전이하며 discusses는 제외한다.
 - Q12c/d: 모든 구현 PR이 미머지 닫힘이면 rejected, 일부만 닫힘이면 proposed 유지·연결 정리 안내. rejected의 구현 PR이 재개방되면 proposed로 복귀한다.
 - Q17: 현재 작업·상태 갱신 대상·대기 질문 중심으로 조회한다. 세션 시작의 기록 누락은 안내만 하며 상세 번들은 기록 시 수집한다. 전체 과거·최근 PR 조회는 명시적 요청 또는 별도로 켠 검사로 제한한다.
-- Q05a: v1 공식 지원 운영체제는 macOS·Linux·Windows다. Windows 자체 환경을 구현·검증 대상에 포함하며 최소 도구 버전과 WSL 표기는 후속 확정한다.
+- Q05a/b/c/d: v1 공식 지원 운영체제는 macOS·Linux·Windows다. Node 22+와 LTS 22·24를 검증하고 git·gh는 capability로 판정한다. Windows 네이티브와 WSL2를 지원하며 portable Codex manifest를 기본으로 한다.
 
 ## 후속 범위
 
@@ -69,4 +69,4 @@
 
 ## 현재 다음 작업
 
-Q01–Q03·Q17, Q05a 및 Q07a/b/c/d·Q12a/b/c/d·Q13a·Q14a/b/c·Q15a/b 정책을 반영했다. 구현 순서를 정하기 전에 [설계 결정 관리](decisions.md)의 설정·경로·검증·복구·훅·배포 계약을 운영체제별 차이까지 상세화한다. Q04a의 전체 단계 순서와 첫 사용 가능한 목표는 그 뒤 확정한다.
+Q01–Q03·Q17, Q05a/b/c/d, Q06a/b/c 및 Q07a/b/c/d·Q12a/b/c/d·Q13a·Q14a/b/c·Q15a/b 정책을 반영했다. 다음은 Q06d/e/f의 언어·watch glob·dry-run 계약을 확정하고 Q08의 운영체제별 경로·로컬 수명 계약으로 이어간다. Q04a의 전체 단계 순서와 첫 사용 가능한 목표는 세부 계약 완료 뒤 확정한다.

@@ -8,7 +8,20 @@ core에 build/typecheck/test 스크립트가 있지만 테스트 파일은 없�
 
 ## 확정된 지원 범위 (Q05a)
 
-v1 공식 지원 운영체제는 macOS·Linux·Windows다. 릴리스 검증은 Windows 자체 환경을 포함하며 세 운영체제 중 하나라도 필수 기능 검증이 빠진 상태를 전체 v1 호환성 완료로 표시하지 않는다. WSL 지원 표기, 운영체제별 최소 버전, Node·git·gh·Claude Code·Codex의 최소 버전은 후속 확정한다.
+v1 공식 지원 운영체제는 macOS·Linux·Windows다. 릴리스 검증은 Windows 자체 환경을 포함하며 세 운영체제 중 하나라도 필수 기능 검증이 빠진 상태를 전체 v1 호환성 완료로 표시하지 않는다. WSL2는 Linux 실행 환경으로 추가 지원하고 WSL1은 비공식이다. Node.js는 22 이상을 요구하며 LTS 22·24를 검증한다. git·gh는 버전 숫자 대신 제품이 사용하는 capability를 검사한다.
+
+## 공식 자료 기준선 (2026-09-23)
+
+| 대상 | 확인된 현재 기준 | 계획에 미치는 영향 |
+|---|---|---|
+| Node.js | 20은 EOL, 22·24는 LTS | Q05b에 따라 22+ 요구, LTS 22·24 검증. package.json의 >=20은 구현 시 수정 |
+| Claude Code | macOS 13+, Windows 10 1809+/Server 2019+, Ubuntu 20.04+, Debian 10+, Alpine 3.19+. Windows 네이티브·WSL 지원 | 공식 최소선 이하를 v1 필수 조합으로 잡지 않음. Windows 네이티브 fixture 필수 |
+| Claude Code npm 설치 | Node.js 22+ | core의 Node 22+ 제안과 일치하지만 native 설치는 별도이므로 호스트 설치 방식과 제품 런타임을 구분 |
+| Codex 플러그인 | portable 루트 manifest 권장, `.codex-plugin` fallback 지원, 번들 훅 신뢰 필요 | Q05d에 따라 portable manifest 기본, fallback 유지. 훅 신뢰 전 수동 스킬 흐름 검증 |
+| Codex 훅 | `PLUGIN_ROOT`·`PLUGIN_DATA`, 호환용 Claude 변수, `commandWindows` 제공 | 루트 변수·Windows 명령·호스트별 fixture를 훅 계약에 포함 |
+| GitHub CLI | macOS·Linux·Windows 설치 경로 제공 | Q05b에 따라 명령·JSON 필드·인증 capability를 init check에서 검사 |
+
+근거: [Node.js 릴리스](https://nodejs.org/en/about/previous-releases), [Claude Code 설치 요구사항](https://code.claude.com/docs/en/getting-started), [OpenAI 플러그인 패키징](https://developers.openai.com/plugins/build/plugins), [GitHub CLI](https://cli.github.com/).
 
 ## 검증 대상
 
@@ -26,7 +39,7 @@ v1 공식 지원 운영체제는 macOS·Linux·Windows다. 릴리스 검증은 W
 
 ## 배포·지원 질문
 
-1. macOS·Linux·Windows 각각의 최소 버전과 Node·git·gh·Claude Code·Codex의 최소 버전은 무엇이며 WSL은 어떻게 표기하는가?
+1. OS·Node·도구 capability·WSL2·Codex 패키징은 Q05a/b/c/d로 확정했다. 호스트 버전 고정과 업데이트 정책을 어떻게 운영하는가?
 2. 제품 표시 이름 histore와 패키지/실행 이름 project-history를 그대로 유지하는가?
 3. npm 및 두 호스트 플러그인의 배포 경로와 릴리스 단위는 무엇인가?
 4. npx 호출 버전을 고정하는가? 업데이트와 설정·저장소 스키마 호환을 어떻게 보장하는가?
