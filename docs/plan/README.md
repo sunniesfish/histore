@@ -62,6 +62,8 @@
 - Q05a/b/c/d: v1 공식 지원 운영체제는 macOS·Linux·Windows다. Node 22+와 LTS 22·24를 검증하고 git·gh는 capability로 판정한다. Windows 네이티브와 WSL2를 지원하며 portable Codex manifest를 기본으로 한다.
 - Q06d/e/f: 언어는 명시적인 BCP 47 태그를 필수로 한다. watch는 저장소 루트 기준 `/` glob이며 생략 시 전체다. dry-run은 로컬·원격 상태를 전혀 바꾸지 않는 읽기 전용 시뮬레이션이다.
 - Q07e–i: 엔트리 ID는 ASCII kebab slug 1–72자와 결정 `date` 월을 사용한다. 같은 작업 대상의 local draft만 자동 갱신하며 다른 대상·원격 충돌은 순차 suffix, 원격 수정은 명시적 옵션으로 처리한다. 미지·중복 field와 YAML 확장 문법은 거부한다.
+- Q07j: date는 UTC 날짜이며 표시할 때 UTC 기준임을 명시한다.
+- Q07k–o: 원격 기록의 월 변경 date 수정은 거부한다. 목록 필드는 필수 배열, null은 revisit_when만 허용한다. refs.type은 pr/issue/link이고 implements는 pr만 허용한다. CLI는 본문 구조와 섹션–missing 정합성만 검사한다. draft write는 입력에 없는 자동 필드만 채운 뒤 최종 검증한다.
 
 ## 후속 범위
 
@@ -71,4 +73,4 @@
 
 ## 현재 다음 작업
 
-Q01–Q03·Q17, Q05a/b/c/d, Q06a/b/c/d/e/f 및 Q07a–i·Q12a/b/c/d·Q13a·Q14a/b/c·Q15a/b 정책을 반영했다. 다음은 Q07의 남은 엔트리 검증 선택지를 제시한다. Q08·Q09는 아직 답변 대기이며, 사용자 선택 전에는 확정하지 않는다. Q04a의 전체 단계 순서와 첫 사용 가능한 목표는 세부 계약 완료 뒤 확정한다.
+Q01–Q03·Q17, Q05a/b/c/d, Q06a/b/c/d/e/f 및 Q07a–o·Q12a/b/c/d·Q13a·Q14a/b/c·Q15a/b 정책을 반영했다. Q08·Q09는 아직 답변 대기이며, 사용자 선택 전에는 확정하지 않는다. Q04a의 전체 단계 순서와 첫 사용 가능한 목표는 세부 계약 완료 뒤 확정한다.

@@ -105,18 +105,22 @@ paths: [src/auth/**]                  # 자동. 연결 PR diff에서 추출
 refs:
   - {type: pr, url: ..., role: implements}
   - {type: issue, url: ..., role: discusses}
-  - {type: slack, url: ..., role: discusses}
+  - {type: link, url: ..., role: discusses}   # Slack·외부 문서 등
 deciders: [alice]                     # 자동. PR author
-verified_by: null                     # 결정자가 작성된 기록을 명시적으로 확인한 경우에만 채움
+verified_by: []                       # 결정자가 작성된 기록을 명시적으로 확인한 경우에만 채움
 missing: [alternatives]                # 부족한 항목. 모두 채웠으면 []
 revisit_when: null                    # 선택
 ```
 
-- Q07f: `date`는 실제 존재하는 Gregorian `YYYY-MM-DD`이고 id의 `YYYY-MM`과 일치해야 한다. 백필은 확인 가능한 결정일을 사용하고, 날짜를 알 수 없으면 기록일을 쓰되 Context에 원래 날짜가 미확인임을 표시한다. 날짜 경계의 시간대와 월을 넘는 date 수정 절차는 후속 확정한다.
+- Q07f: `date`는 실제 존재하는 Gregorian `YYYY-MM-DD`이고 id의 `YYYY-MM`과 일치해야 한다. 백필은 확인 가능한 결정일을 사용하고, 날짜를 알 수 없으면 기록일을 쓰되 Context에 원래 날짜가 미확인임을 표시한다.
+- Q07j: `date`는 UTC 기준 날짜다. 현재 결정은 기록 시점의 UTC 날짜, 백필은 출처 타임스탬프(PR `merged_at` 등)의 UTC 날짜를 쓴다. 시각은 저장하지 않고 생성 시 한 번만 정하며 재계산하지 않는다. 표시할 때 로컬 날짜로 변환하지 않고 UTC 기준임을 명시한다.
+- Q07k: local draft의 월 변경 date 수정은 다음 `draft write`에서 새 ID로 교체한다. 원격 기록의 월 변경 date 수정은 거부하고 정정 사실은 Context에 적는다.
+- Q07l: `supersedes`·`paths`·`refs`·`deciders`·`verified_by`·`missing`은 필수 배열이며 빈 값은 `[]`다. 생략·`null`은 검증 실패이고 `null`은 `revisit_when`(또는 비어 있지 않은 문자열)에만 허용한다. `title`은 개행 없는 1–120자 문자열이다. `deciders`·`verified_by` 원소는 중복 없는 GitHub login이다. 새 초안의 `status`는 `proposed`만 허용한다.
+- Q07m: `refs.type ∈ {pr, issue, link}`. `pr`·`issue`는 GitHub URL, `link`는 http(s) URL이다. `role: implements`는 `type: pr`에만 허용하며 같은 URL 중복은 검증 실패다.
 
 - Q07b·Q07c: `missing`은 필수 배열이다. 허용값은 `rationale`(선택 이유), `alternatives`(기각한 대안과 이유), `consequences`(예상 결과·감수한 단점)다. 부족한 항목만 넣고 모두 채웠으면 `[]`로 둔다. 본문에는 구체적으로 무엇을 모르는지 설명한다.
 - `missing`은 정보 종류를 나타낸다. Context에 문제 상황이 적혀 있어도 선택 이유가 없으면 `rationale`이 부족할 수 있다. `status`(결정 진행 상태)와 `verified_by`(결정자 확인 여부)는 별개다.
-- `missing` 필드 누락을 빈 배열로 간주하지 않는다. 필수 배열 여부와 허용값은 검증 대상이며 중복·순서 정규화, 부분적인 공백의 판정, 이전 형식 기록의 호환 처리는 후속 확정한다.
+- `missing` 필드 누락을 빈 배열로 간주하지 않는다. 필수 배열 여부와 허용값은 검증 대상이다. Q07n: 중복은 검증 실패이고 순서는 rationale → alternatives → consequences로 정규화한다. Alternatives·Consequences 섹션이 비면 해당 값이 있어야 하며, `rationale`과 부분적인 공백의 판정은 스킬이 담당한다. 이전 형식 기록의 호환 처리는 후속 확정한다.
 - `refs.role`은 `implements` / `discusses` 두 개.
 - Q07d: 외부 URL이 없는 대화 출처는 Context에 발언자·날짜·결정 근거 요약으로 남긴다. 외부 링크가 없으면 `refs: []`를 허용한다. 대화 원문 전체나 로컬 트랜스크립트 경로를 원격 기록에 저장하지 않고 별도 sources 메타데이터도 추가하지 않는다. 링크 부재 자체를 출처 부재로 판정하지 않는다.
 - Q14a: `verified_by`는 결정자가 작성된 기록 내용을 명시적으로 확인했을 때만 채운다. 코드 PR 머지, 근거 질문에 대한 답변, 에이전트의 보완 또는 `missing: []`만으로 채우지 않는다. 확인자 목록의 정확한 저장 형식·확인 증거의 보관 등은 후속 결정이다.
@@ -345,7 +349,7 @@ Claude Code와 Codex에서 스킬·스크립트 소스를 공유하되 호스트
 | 다른 사람 PR | PR 작성자 | 프로젝트 PR에 코멘트 + @멘션, 비동기 |
 
 **비동기 질문 메커니즘**
-1. 쓸 수 있는 만큼 작성해 `proposed` push. `verified_by: null`
+1. 쓸 수 있는 만큼 작성해 `proposed` push. `verified_by: []`
 2. 프로젝트 PR에 코멘트 1개 게시: 질문 묶음 + @작성자 + 숨은 마커 `<!-- history:q <entry-id> -->`. refs에 코멘트 URL을 `discusses`로 추가
 3. 작성자가 GitHub에서 답함
 4. SessionStart 검사 4가 답글 감지 → 갱신 제안 → 에이전트가 답글을 번들에 넣어 보완. 부족한 내용이 해소되더라도 답변 사실만으로 verified_by를 채우지 않는다.

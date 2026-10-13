@@ -11,20 +11,20 @@
 | 필드 | 기존 규약 | 추가 결정 |
 |---|---|---|
 | id | Q07e–h 확정: ASCII kebab slug 1–72자, date 월 일치, 순차 suffix. 같은 작업 대상의 local draft만 자동 갱신 | 동시 생성 충돌의 원자적 처리 |
-| title | 문제–해결 문장 | 타입·길이·빈 문자열 |
-| date | Q07f 확정: 실제 Gregorian `YYYY-MM-DD`, id prefix와 연·월 일치 | 현재 결정의 날짜 경계에 사용할 시간대 |
-| status | proposed/accepted/rejected/superseded/reverted | 허용 전이와 초안 상태 표현 |
-| supersedes | 이전 id 배열 | 순환·중복·다중 대체 |
-| paths | PR diff에서 자동 채움 | 정확한 파일에서 glob을 만드는 규칙, 수동 값 취급 |
-| refs | type/url/role, role은 implements 또는 discusses. 대화 출처는 Context로 남기고 외부 링크 없으면 [] 허용 | type 허용값, URL 검증, 중복 |
-| deciders | PR author 등에서 자동 채움 | 자료형 세부, PR 없는 경우·다중 결정자 |
-| verified_by | 명시적으로 확인한 결정자 목록. 일부 확인 가능, 의미 변경 시 기존 확인 해제 | 목록 원소·미확인 표현의 정합성, 확인 증거·의미 변경 판정 |
-| missing | 필수 배열. rationale/alternatives/consequences 중 부족한 항목, 완성 시 [] | 부분 누락 판정, 중복·정렬, 이전 기록 호환 |
-| revisit_when | 선택 필드 | 허용 타입·빈 값 |
+| title | 문제–해결 문장. Q07l: 개행 없는 1–120자 문자열 | — |
+| date | Q07f 확정: 실제 Gregorian `YYYY-MM-DD`, id prefix와 연·월 일치. Q07j 확정: UTC 날짜, 표시 시 UTC 명시 | — |
+| status | proposed/accepted/rejected/superseded/reverted. Q07l: 새 초안은 proposed만 허용 | 허용 전이(Q12) |
+| supersedes | 이전 id 필수 배열, 없으면 [] (Q07l) | 순환·중복·다중 대체(Q12) |
+| paths | 필수 배열. 입력에 없을 때만 diff에서 자동 채움, 입력 값은 유지(Q07l·Q07o) | diff 기준·파일에서 glob을 만드는 규칙(Q09) |
+| refs | 필수 배열. type ∈ {pr, issue, link}, role ∈ {implements, discusses}. pr·issue는 GitHub URL, link는 http(s) URL. implements는 pr만, 같은 URL 중복 금지(Q07m). 대화 출처는 Context로 남기고 외부 링크 없으면 [] 허용 | — |
+| deciders | 필수 배열, 중복 없는 GitHub login. 입력에 없을 때만 PR author, PR 없으면 현재 gh 인증 사용자로 채움(Q07l·Q07o) | — |
+| verified_by | 필수 배열, 중복 없는 GitHub login. 미확인은 []. 일부 확인 가능, 의미 변경 시 기존 확인 해제 | 확인 증거·의미 변경 판정 |
+| missing | 필수 배열. rationale/alternatives/consequences 중 부족한 항목, 완성 시 []. 중복 금지, 위 순서로 정규화(Q07n) | 이전 기록 호환 |
+| revisit_when | null 또는 비어 있지 않은 문자열(Q07l) | — |
 
 본문은 Context → Decision → Alternatives → Consequences 순서의 h2 섹션이다. diff에서만 추론한 문장에는 추정 표시를 붙이며 근거 없는 대안을 만들어 채우지 않는다.
 
-frontmatter는 Q07i에 따라 위 표의 선언된 필드만 허용한다. 미지·중복 key와 YAML anchor·alias·merge key·custom tag는 검증 실패다. 각 필드의 정확한 자료형·nullable 여부는 후속 선택으로 남긴다.
+frontmatter는 Q07i에 따라 위 표의 선언된 필드만 허용한다. 미지·중복 key와 YAML anchor·alias·merge key·custom tag는 검증 실패다. Q07l에 따라 목록 필드의 생략·null은 검증 실패이며 null은 revisit_when에만 허용한다.
 
 ## Q07e 확정: 엔트리 ID 문자 체계
 
@@ -59,12 +59,13 @@ frontmatter는 Q07i에 따라 위 표의 선언된 필드만 허용한다. 미�
 - `date`는 실제 존재하는 Gregorian `YYYY-MM-DD`이고 ID의 앞 7자 `YYYY-MM`과 반드시 일치한다. 불일치는 warning이 아니라 검증 실패다.
 - 과거 결정을 백필할 때는 신뢰 가능한 출처에서 확인되는 결정 날짜를 사용한다.
 - 과거 결정의 정확한 날짜를 확인할 수 없으면 기록 작성일을 사용하고 Context에 원래 결정 날짜가 미확인임을 표시한다.
-- 현재 결정의 날짜 경계에 사용할 시간대와 기존 기록의 date 수정으로 월이 달라질 때 ID를 바꾸는 절차는 아직 확정하지 않았다.
+- Q07k: local draft의 date 수정으로 월이 바뀌면 다음 `draft write`에서 새 ID로 교체하고 이전 ID 초안을 대체한다. 원격 기록의 월 변경 date 수정은 exit 2로 거부하며 정정 사실은 Context에 적는다. v1은 원격 ID 변경 기능을 제공하지 않는다.
+- Q07j: `date`는 UTC 기준 날짜다. 현재 결정은 기록 시점의 UTC 날짜, 백필은 출처 타임스탬프(PR `merged_at` 등)의 UTC 날짜를 쓴다. 시각은 저장하지 않고 생성 시 한 번만 정하며 재계산하지 않는다. 표시할 때 로컬 날짜로 변환하지 않고 UTC 기준임을 명시한다. 테스트는 프로세스 `TZ` 값과 관계없이 같은 결과를 확인한다.
 
 ## 명령별 작업
 
 - template: 자동 필드 paths/deciders를 제외한 빈 엔트리를 출력한다. --json의 구체 구조는 결정이 필요하다.
-- draft write: --branch 또는 --pr 대상과 --file을 받아 id별 추가·갱신하고 자동 필드를 채운다. 현재 규약의 검증과 채움 순서는 Q07에서 명확히 한다.
+- draft write: --branch 또는 --pr 대상과 --file을 받아 id별 추가·갱신한다. Q07o에 따라 입력 검증(paths·deciders 생략 허용) → 입력에 없는 필드만 자동 채움 → 최종 스키마 검증 순으로 처리하고, filled에는 실제로 채운 필드만 담는다.
 - draft show: 브랜치와 선택 id로 Markdown 또는 JSON을 반환한다. 여러 초안의 출력 구조는 결정이 필요하다.
 - draft discard: 선택 대상 초안을 삭제하고 discarded id 배열을 반환한다.
 - skip: 브랜치의 결정 없음 마커를 기록하거나 해제한다. 초안과 마커가 함께 있을 때 처리·마커 수명은 미정이다.
@@ -73,7 +74,7 @@ frontmatter는 Q07i에 따라 위 표의 선언된 필드만 허용한다. 미�
 
 사용자는 B를 선택했다. 근거가 부족한 기록도 로컬 작성 후 원격 저장하고, 부족한 부분을 명시해 질문·답변으로 보완한다. 내용 완성도와 결정 상태(status), 결정자의 확인 여부(verified_by)는 구분해야 한다.
 
-Q07a에 따라 결정 내용과 출처가 있으면 저장한다. 선택 이유가 없어도 저장할 수 있으며 이유·대안·결과의 부족함을 표시하고 보완한다. Q07b에 따라 부족한 항목 목록을 메타데이터에 추가하고 본문에는 구체적인 공백을 설명한다. Q07c에 따라 목록은 필수 missing 배열이며 허용값은 rationale/alternatives/consequences다. 부족한 항목이 없으면 []로 둔다. 대화 출처는 Context에 발언자·날짜·근거 요약으로 기록하고 외부 링크가 없으면 refs: []를 허용한다(Q07d). 부분 누락 판정·그 외 필드 검증 오류와 경고의 구분은 Q07에서 추가 질문한다. 근거 없는 내용을 만들어 빈 항목을 채우지 않는다. draft write·flush·gate는 이 정책에 맞춰 검증해야 하며 구체 조건은 아직 미정이다.
+Q07a에 따라 결정 내용과 출처가 있으면 저장한다. 선택 이유가 없어도 저장할 수 있으며 이유·대안·결과의 부족함을 표시하고 보완한다. Q07b에 따라 부족한 항목 목록을 메타데이터에 추가하고 본문에는 구체적인 공백을 설명한다. Q07c에 따라 목록은 필수 missing 배열이며 허용값은 rationale/alternatives/consequences다. 부족한 항목이 없으면 []로 둔다. 대화 출처는 Context에 발언자·날짜·근거 요약으로 기록하고 외부 링크가 없으면 refs: []를 허용한다(Q07d). CLI의 기계 검사와 스킬의 부분 누락 판정 분담은 Q07n, 필드 자료형은 Q07l·Q07m을 따른다. 근거 없는 내용을 만들어 빈 항목을 채우지 않는다. draft write·flush·gate는 이 정책에 맞춰 검증해야 하며 구체 조건은 아직 미정이다.
 
 ## 확정된 최소 내용의 검증
 
@@ -105,7 +106,9 @@ Q07a에 따라 결정 내용과 출처가 있으면 저장한다. 선택 이유�
 - missing: [rationale]이면 선택 이유가 부족하다는 본문 설명과 함께 저장할 수 있다.
 - missing 필드 누락·배열 아닌 값·허용값 이외의 항목은 규약 위반이다.
 - Context에 문제 상황만 있고 선택 이유가 없을 때, 섹션 존재만으로 rationale을 완성으로 취급하지 않는다.
-- 부분적으로만 확인된 대안과 결과의 판정·보완 후 목록 갱신 주체는 후속 확정한다.
+- Q07n: CLI는 h2 4개 섹션의 순서, Decision 비어 있지 않음, refs: []일 때 Context 비어 있지 않음을 검사한다.
+- Q07n: Alternatives가 비면 missing에 alternatives, Consequences가 비면 consequences가 있어야 한다. rationale과 부분적으로만 확인된 대안·결과의 판정, 보완 후 목록 갱신은 스킬(에이전트)이 담당한다.
+- Q07n: missing 중복은 검증 실패이고 순서는 rationale → alternatives → consequences로 정규화해 저장한다.
 
 ## 검증할 시나리오
 
@@ -115,4 +118,4 @@ Q07a에 따라 결정 내용과 출처가 있으면 저장한다. 선택 이유�
 - 초안 일부 삭제·전체 삭제, skip 생성·해제 및 초안과의 공존.
 - UTF-8 내용과 Markdown 왕복 처리, 날짜·경로·id 경계값.
 
-본문 길이 상한과 경고 기준은 아직 숫자를 정하지 않았다. Q07e–i의 ID·날짜·길이·갱신 범위·frontmatter 엄격도는 확정됐으며 Q07·Q08·Q10의 후속 답변으로 나머지 기대 동작을 고정해야 구현 준비가 끝난다.
+본문 길이는 CLI가 검사하지 않고 스킬 작성 지침(한 화면)으로만 둔다(Q07n). Q07e–o는 확정됐으며 Q08·Q10의 후속 답변으로 나머지 기대 동작을 고정해야 구현 준비가 끝난다.
