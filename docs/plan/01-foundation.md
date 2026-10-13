@@ -28,21 +28,18 @@ Node.js는 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. g
 
 ## 남은 상세 계약
 
-1. `language`를 init의 필수 입력으로 받을지 자동 감지할지 정한다(Q06d).
-2. `watch` glob의 경로 기준·구분자·금지 패턴과 생략 의미를 정한다(Q06e).
-3. `--dry-run`에서 허용할 읽기와 금지할 로컬·원격 부작용을 정한다(Q06f).
-4. `config get <key>`의 미존재 key, 오류 객체 code와 필드 경로 표현을 고정한다.
-5. PROJECT_HISTORY_HOME이 없을 때 macOS·Linux·Windows의 기본 캐시 위치를 정한다(Q08).
-6. SSH/HTTPS origin, fork, origin 없음, GitHub Enterprise를 어디까지 지원하는지 정한다.
-7. worktree·심볼릭 링크·상위 탐색 경계·브랜치 경로 인코딩과 Windows 드라이브·UNC·경로 대소문자를 정한다(Q08).
-8. 알 수 없는 명령·플래그, 상충하는 대상 옵션, 누락한 인자의 오류 형식을 고정한다.
+1. `config get <key>`의 미존재 key, 오류 객체 code와 필드 경로 표현을 고정한다.
+2. PROJECT_HISTORY_HOME이 없을 때 macOS·Linux·Windows의 기본 캐시 위치를 정한다(Q08).
+3. SSH/HTTPS origin, fork, origin 없음, GitHub Enterprise를 어디까지 지원하는지 정한다.
+4. worktree·심볼릭 링크·상위 탐색 경계·브랜치 경로 인코딩과 Windows 드라이브·UNC·경로 대소문자를 정한다(Q08).
+5. 알 수 없는 명령·플래그, 상충하는 대상 옵션, 누락한 인자의 오류 형식을 고정한다.
 
 ## Q06 확정 설정·오류 계약
 
 | 항목 | 확정 계약 | 후속 미결 |
 |---|---|---|
-| 스키마 | `history_repo` 필수. `write`, `gate`, `auto_save`, `ask`, `agent_hook`, `language`, `watch`만 허용. `review` 제거 | language 입력 방식 Q06d, watch 문법 Q06e |
-| 기본값 | `write: direct`, `gate: block`, `auto_save: true`, `ask: manual`, `agent_hook: false` | language·watch의 생략 동작 Q06d/e |
+| 스키마 | `history_repo`, `language` 필수. `write`, `gate`, `auto_save`, `ask`, `agent_hook`, `watch` 선택. 이 키 외에는 허용하지 않고 `review` 제거 | 없음 |
+| 기본값 | `write: direct`, `gate: block`, `auto_save: true`, `ask: manual`, `agent_hook: false`, `watch` 생략 시 저장소 전체 | 없음 |
 | 엄격도 | 미지 키·잘못된 타입·미지원 값은 exit 2. 누락한 선택 키는 기본값 적용 | 오류 객체의 code와 경로 표기 세부 |
 | 설정 없음 | 도움말·버전, `init check/create/config`, `doctor`만 허용. 나머지는 exit 1 + init 안내 | 없음 |
 | 조회 | `config get`은 해석값과 각 값의 출처(default/file)를 JSON으로 반환 | 단일 key의 미존재 응답 형식 |
@@ -57,8 +54,33 @@ Node.js는 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. g
 | `auto_save` | boolean |
 | `ask` | v1은 `manual`만 허용 |
 | `agent_hook` | boolean |
-| `language` | 비어 있지 않은 언어 태그. 입력·기본 규칙은 Q06d |
-| `watch` | 문자열 배열. 경로 문법·생략 의미는 Q06e |
+| `language` | 필수 BCP 47 언어 태그. `Intl.getCanonicalLocales`로 검증·정규화하며 기본값이나 자동 감지 없음 |
+| `watch` | 선택 문자열 배열. 아래의 저장소 상대 glob 계약을 따르며 생략 시 저장소 전체 |
+
+## 언어 계약 (Q06d 확정)
+
+- `init config`는 `--language <tag>`를 필수로 받고 정규화한 태그를 `.history.yml`에 쓴다. 플래그가 없으면 파일을 쓰지 않고 exit 2다.
+- 직접 작성한 설정도 `language`가 없으면 exit 2다. 최근 PR·커밋·운영체제 locale에서 언어를 추론하지 않고 `en`으로 fallback하지 않는다.
+- Node.js의 `Intl.getCanonicalLocales`가 수락하는 BCP 47 태그만 허용한다. 예를 들어 `ko`, `en`, `en-US`, `zh-Hant`는 유효하고 `ko_KR`, 빈 문자열은 유효하지 않다.
+- 해석된 설정과 `init config` 출력은 canonical tag를 사용한다. 이 값은 에이전트가 생성하는 기록·질문·요약의 기본 자연어를 지정하며 코드, 경로, 식별자, 인용문을 번역하라는 의미는 아니다.
+
+## watch glob 계약 (Q06e 확정)
+
+- 패턴은 저장소 루트 상대 경로이며 구분자는 모든 운영체제에서 `/`다. 매칭 대상도 Git이 반환한 저장소 상대 경로를 `/`로 정규화한 값이다.
+- 지원 문법은 리터럴, `*`, `?`, 문자 클래스(`[abc]`, `[a-z]`, `[!a]`), 전체 경로 세그먼트인 `**`다. `*`와 `?`는 `/`를 넘지 않고 `**`는 0개 이상의 세그먼트와 일치한다. 선행 점이 있는 이름도 일반 문자처럼 매칭한다.
+- 여러 패턴은 OR로 결합한다. 선행 `!` 제외 패턴, brace, extglob, 역슬래시 escape는 지원하지 않고 해당 문법을 사용하면 exit 2다.
+- 빈 문자열·빈 배열, 선행 `/`, 후행 `/`, `.`·`..` 세그먼트, `\\`, Windows 드라이브 절대 경로와 UNC 경로는 exit 2 검증 실패다. OS 네이티브 구분자로 자동 변환하지 않는다.
+- `watch`를 생략하면 논리적으로 저장소 전체가 대상이다. 자동 diff 감지와 관련 경로 수집에는 이 범위를 적용하되, 명시적인 조회·기록 명령 자체를 비활성화하지 않는다.
+
+## dry-run 부작용 경계 (Q06f 확정)
+
+- `--dry-run`은 쓰기 명령에서만 허용한다. 읽기 전용 명령이나 내부 `hook` 진입점에 주면 미지 플래그로 exit 2다.
+- 설정·기존 로컬 파일·기존 캐시·Git 상태를 읽고 읽기 전용 GitHub 조회를 수행할 수 있다. 입력과 권한 검증도 읽기만으로 가능한 범위에서 정상 실행과 동일하게 수행한다. Git 조회는 `--no-optional-locks` 또는 동등한 설정으로 선택적 인덱스 갱신을 막는다.
+- 디렉터리·캐시·인덱스·번들·초안·설정·로그·락·임시 파일을 만들거나 수정하지 않는다. 따라서 락도 획득하지 않는다.
+- `git clone/fetch/pull/rebase/commit/branch/checkout/push`와 `gh repo create`, PR 생성, 댓글, 상태 변경 등 로컬 저장소나 원격 상태를 바꾸는 명령은 실행하지 않는다. commit hook 같은 간접 부작용도 발생시키지 않는다.
+- 정상 실행에 필요한 데이터가 기존 상태에 없으면 이를 만들거나 가져오지 않고 계획 결과에 미확인 전제 조건으로 표시한다. dry-run 성공은 실제 쓰기·원격 권한 성공을 보장하지 않는다.
+- 성공 시 일반 실행의 완료 결과를 흉내 내지 않고 `{"dry_run":true,"command":"...","would_change":[{"scope":"local|git|github","action":"...","target":"..."}],"unverified":["..."]}`를 반환한다. 생성하지 않은 commit id·URL·파일 경로를 실제 결과처럼 만들지 않는다. 배열은 실행 예정 순서로 안정적으로 정렬한다.
+- 입력·설정 검증 실패는 일반 실행과 같은 exit 1/2 계약을 유지한다.
 
 ## 검증할 시나리오
 
@@ -70,4 +92,4 @@ Node.js는 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. g
 - macOS·Linux·Windows에서 동일한 입력이 같은 논리 결과와 종료 코드·출력 스키마를 만드는지 확인.
 - Windows 경로·공백·드라이브·UNC 입력, LF/CRLF, git·gh 자식 프로세스 인자 전달과 파일 락·원자적 교체를 별도 확인.
 
-테스트의 나머지 기대값은 Q06d/e/f와 Q08 후속 결정 뒤 작성한다. Q06a/b/c로 확정한 스키마 오류와 설정 없는 명령의 기대값은 바로 fixture로 작성할 수 있다.
+Q06 fixture는 언어 태그 canonicalization·누락·잘못된 태그, 세 운영체제에서 같은 watch 결과, 금지 패턴, dry-run 전후 파일시스템·Git refs·GitHub 상태 불변을 포함한다. Q08의 기대값은 사용자 선택 뒤 작성한다.

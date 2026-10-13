@@ -82,7 +82,7 @@ repos:
 
 ### 3.6 규격
 
-- id: `YYYY-MM-<slug>`. 충돌 시 `-2` 접미.
+- id: `YYYY-MM-<ascii-kebab-slug>`. slug는 lowercase ASCII 영문자·숫자를 단일 `-`로 연결하고 충돌 시 순차 suffix를 사용한다(Q07e). prefix는 `date`의 연·월과 일치하며(Q07f), suffix를 제외한 slug는 1–72자이고 자동 절단하지 않는다(Q07g). 같은 작업 대상의 local draft만 자동 갱신하며 다른 대상·원격 기록 충돌은 새 suffix를 쓰고 원격 수정에는 명시적 옵션이 필요하다(Q07h).
 - 파일: UTF-8, frontmatter `---` 구분, 본문 섹션은 `## Context` 등 h2 고정 (스크립트가 섹션 비어 있음을 판정하는 기준).
 - `schema` 버전은 저장소 레벨(`history.yml`)에만. 마이그레이션은 전체 일괄 스크립트.
 - `paths`: 코드 저장소가 둘 이상이면 `api:src/auth/**` 형태로 접두. 하나면 접두 없음.
@@ -92,6 +92,8 @@ repos:
 기록 단위는 **결정(decision) 하나.** 이벤트가 아니다. 결정 하나가 PR 여러 개에 걸칠 수도, 코드가 없을 수도 있다.
 
 ### 4.1 frontmatter (필수 10 + 선택 1)
+
+최상위는 하나의 mapping이며 아래 필드 외의 key와 중복 key를 허용하지 않는다. YAML anchor·alias·merge key·custom tag도 검증 실패다(Q07i). 필드를 추가할 때는 스키마와 migration을 명시적으로 변경한다.
 
 ```yaml
 id: 2026-09-auth-session-to-jwt
@@ -109,6 +111,8 @@ verified_by: null                     # 결정자가 작성된 기록을 명시�
 missing: [alternatives]                # 부족한 항목. 모두 채웠으면 []
 revisit_when: null                    # 선택
 ```
+
+- Q07f: `date`는 실제 존재하는 Gregorian `YYYY-MM-DD`이고 id의 `YYYY-MM`과 일치해야 한다. 백필은 확인 가능한 결정일을 사용하고, 날짜를 알 수 없으면 기록일을 쓰되 Context에 원래 날짜가 미확인임을 표시한다. 날짜 경계의 시간대와 월을 넘는 date 수정 절차는 후속 확정한다.
 
 - Q07b·Q07c: `missing`은 필수 배열이다. 허용값은 `rationale`(선택 이유), `alternatives`(기각한 대안과 이유), `consequences`(예상 결과·감수한 단점)다. 부족한 항목만 넣고 모두 채웠으면 `[]`로 둔다. 본문에는 구체적으로 무엇을 모르는지 설명한다.
 - `missing`은 정보 종류를 나타낸다. Context에 문제 상황이 적혀 있어도 선택 이유가 없으면 `rationale`이 부족할 수 있다. `status`(결정 진행 상태)와 `verified_by`(결정자 확인 여부)는 별개다.
@@ -372,10 +376,16 @@ watch:
 - `auto_save`: boolean, 기본 `true`
 - `ask`: v1은 `manual`만 허용하며 기본 `manual`
 - `agent_hook`: boolean, 기본 `false`
-- `language`: 비어 있지 않은 언어 태그. 입력·생략 규칙은 Q06d에서 확정
-- `watch`: 문자열 배열. glob과 생략 규칙은 Q06e에서 확정
+- `language`: 필수 BCP 47 언어 태그. `Intl.getCanonicalLocales`로 검증·정규화하며 기본값이나 자동 감지 없음
+- `watch`: 선택 문자열 배열. 생략하면 저장소 전체
 
 위 키 외에는 허용하지 않는다. 기존 `review` 키는 의미가 없고 출시 전이므로 제거하며 alias나 경고 호환을 제공하지 않는다(Q06a). 미지 키·잘못된 타입·미지원 enum은 exit 2 검증 실패다(Q06b). 설정 파일이 없으면 도움말·버전, `init check/create/config`, `doctor`만 실행하고 나머지는 exit 1과 init 안내를 반환한다(Q06c).
+
+`language`는 `init config --language <tag>`로 반드시 명시한다. 최근 PR·commit·운영체제 locale을 읽어 추론하지 않고 `en` fallback도 두지 않는다. canonical tag는 에이전트가 생성하는 기록·질문·요약의 기본 자연어에만 적용하며 코드·경로·식별자·인용문을 번역하지 않는다(Q06d).
+
+`watch` 패턴은 저장소 루트 상대이며 세 운영체제 모두 `/`를 구분자로 쓴다. 리터럴, `*`, `?`, 문자 클래스, 전체 세그먼트 `**`를 지원하고 여러 패턴은 OR로 결합한다. 선행 `!` 제외 패턴, brace, extglob, 역슬래시 escape는 지원하지 않는다. 빈 값·빈 배열, 절대 경로, 선행·후행 `/`, `.`·`..` 세그먼트, 역슬래시, Windows 드라이브·UNC 경로는 검증 실패다. 매칭 대상은 Git 경로를 `/`로 정규화한 값이며 선행 점 이름도 일반 문자처럼 처리한다. 생략 시 전체 저장소가 자동 감지 대상이고 명시적 조회·기록 명령은 제한하지 않는다(Q06e).
+
+쓰기 명령의 `--dry-run`은 기존 설정·파일·캐시, Git 상태와 읽기 전용 GitHub 조회만 허용하는 시뮬레이션이다. Git의 선택적 인덱스 갱신도 막으며, 캐시·인덱스·번들·초안·설정·로그·락·임시 파일을 포함한 로컬 쓰기와 `clone/fetch/pull/rebase/commit/branch/checkout/push`, 저장소·PR·댓글 생성 등 원격 변경을 실행하지 않는다. 결과는 실행하지 않은 변경과 읽기만으로 확인할 수 없는 전제 조건을 구분하며, 만들지 않은 commit id·URL을 실제 결과처럼 반환하지 않는다. dry-run 성공은 실제 쓰기 권한이나 원격 변경 성공을 보장하지 않는다(Q06f).
 
 ## 10. 작동 흐름
 

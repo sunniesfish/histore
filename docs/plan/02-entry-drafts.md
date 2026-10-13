@@ -10,9 +10,9 @@
 
 | 필드 | 기존 규약 | 추가 결정 |
 |---|---|---|
-| id | YYYY-MM-slug, 충돌 시 -2 접미 | slug 문자·길이, 동시 충돌, 갱신과 충돌 구분 |
+| id | Q07e–h 확정: ASCII kebab slug 1–72자, date 월 일치, 순차 suffix. 같은 작업 대상의 local draft만 자동 갱신 | 동시 생성 충돌의 원자적 처리 |
 | title | 문제–해결 문장 | 타입·길이·빈 문자열 |
-| date | 날짜 예시 YYYY-MM-DD | 날짜 검증, id 월과의 관계, 시간대 |
+| date | Q07f 확정: 실제 Gregorian `YYYY-MM-DD`, id prefix와 연·월 일치 | 현재 결정의 날짜 경계에 사용할 시간대 |
 | status | proposed/accepted/rejected/superseded/reverted | 허용 전이와 초안 상태 표현 |
 | supersedes | 이전 id 배열 | 순환·중복·다중 대체 |
 | paths | PR diff에서 자동 채움 | 정확한 파일에서 glob을 만드는 규칙, 수동 값 취급 |
@@ -23,6 +23,43 @@
 | revisit_when | 선택 필드 | 허용 타입·빈 값 |
 
 본문은 Context → Decision → Alternatives → Consequences 순서의 h2 섹션이다. diff에서만 추론한 문장에는 추정 표시를 붙이며 근거 없는 대안을 만들어 채우지 않는다.
+
+frontmatter는 Q07i에 따라 위 표의 선언된 필드만 허용한다. 미지·중복 key와 YAML anchor·alias·merge key·custom tag는 검증 실패다. 각 필드의 정확한 자료형·nullable 여부는 후속 선택으로 남긴다.
+
+## Q07e 확정: 엔트리 ID 문자 체계
+
+- ID는 `YYYY-MM-<slug>`이며 slug는 lowercase ASCII 영문자·숫자를 단일 `-`로 연결한 kebab-case다. 정규식의 방향은 `[a-z0-9]+(?:-[a-z0-9]+)*`다.
+- 같은 base ID가 이미 있어 새 ID가 필요하면 `-2`, `-3` 순으로 첫 빈 suffix를 사용한다.
+- Unicode slug와 UUID·timestamp형 불투명 ID는 v1에서 사용하지 않는다. macOS·Linux·Windows의 파일명 및 정렬 결과를 동일하게 유지하기 위한 선택이다.
+- 동시 생성 충돌의 재검사 시점은 아직 확정하지 않았다.
+
+## Q07g 확정: slug 길이
+
+- suffix를 제외한 slug는 1–72자다. 빈 slug와 72자를 넘는 slug는 검증 실패다.
+- 긴 slug를 자동으로 자르지 않는다. 자동 절단으로 서로 다른 입력이 같은 ID가 되는 상황을 만들지 않기 위해 호출자가 유효한 ID를 다시 제시해야 한다.
+- 충돌 시 붙이는 `-2`, `-3` 등의 suffix는 72자 slug 제한에서 제외한다.
+
+## Q07h 확정: 기존 ID의 갱신과 충돌
+
+- 같은 `--branch` 또는 `--pr` 작업 대상에 같은 ID의 로컬 draft가 있으면 기존 draft 갱신이다.
+- 다른 작업 대상의 local draft 또는 history repository의 원격 기록에 같은 ID가 있으면 기존 내용을 갱신하지 않고 `-2`, `-3` 순의 첫 빈 suffix로 새 ID를 만든다.
+- 원격 기존 기록을 수정하려면 `--update-existing <id>`를 명시해야 한다. 옵션의 ID와 입력 frontmatter ID가 다르면 검증 실패다.
+- 새 ID가 배정되면 결과에 요청 ID와 실제 ID를 함께 반환해야 한다. 정확한 JSON 필드명은 CLI 결과 계약을 상세화할 때 확정한다.
+- 두 프로세스가 같은 suffix를 동시에 선택하는 경쟁과 flush 시 재검사·복구는 Q10에서 결정한다.
+
+## Q07i 확정: frontmatter 엄격도
+
+- frontmatter 최상위는 하나의 mapping이며 선언된 필수 10개와 선택 `revisit_when` 외의 key를 허용하지 않는다.
+- 미지 key와 중복 key는 warning으로 보존하거나 무시하지 않고 검증 실패로 처리한다.
+- YAML anchor, alias, merge key와 custom tag는 허용하지 않는다. 같은 데이터가 파서 기능이나 입력 위치에 따라 다르게 해석되는 것을 막는다.
+- 향후 필드를 추가할 때는 스키마·문서·검증기와 필요한 migration을 함께 변경한다. 이전 구현이 새 필드를 조용히 버리는 호환 방식은 사용하지 않는다.
+
+## Q07f 확정: ID 월과 결정 날짜
+
+- `date`는 실제 존재하는 Gregorian `YYYY-MM-DD`이고 ID의 앞 7자 `YYYY-MM`과 반드시 일치한다. 불일치는 warning이 아니라 검증 실패다.
+- 과거 결정을 백필할 때는 신뢰 가능한 출처에서 확인되는 결정 날짜를 사용한다.
+- 과거 결정의 정확한 날짜를 확인할 수 없으면 기록 작성일을 사용하고 Context에 원래 결정 날짜가 미확인임을 표시한다.
+- 현재 결정의 날짜 경계에 사용할 시간대와 기존 기록의 date 수정으로 월이 달라질 때 ID를 바꾸는 절차는 아직 확정하지 않았다.
 
 ## 명령별 작업
 
@@ -78,4 +115,4 @@ Q07a에 따라 결정 내용과 출처가 있으면 저장한다. 선택 이유�
 - 초안 일부 삭제·전체 삭제, skip 생성·해제 및 초안과의 공존.
 - UTF-8 내용과 Markdown 왕복 처리, 날짜·경로·id 경계값.
 
-본문 길이 상한과 경고 기준은 아직 숫자를 정하지 않았다. Q07·Q08의 후속 답변으로 기대 동작을 고정해야 구현 준비가 끝난다.
+본문 길이 상한과 경고 기준은 아직 숫자를 정하지 않았다. Q07e–i의 ID·날짜·길이·갱신 범위·frontmatter 엄격도는 확정됐으며 Q07·Q08·Q10의 후속 답변으로 나머지 기대 동작을 고정해야 구현 준비가 끝난다.

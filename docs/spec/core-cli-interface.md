@@ -29,7 +29,8 @@
 
 **설정 해석**
 - `.history.yml`을 cwd에서 상위로 탐색한다. 없으면 도움말·버전, `init check/create/config`, `doctor`만 허용하고 다른 명령은 exit 1 + hint `run init`이다(Q06c).
-- 설정이 있으면 `history_repo` 필수 여부, 허용 키, 타입과 enum을 검증한다. 미지 키와 제거된 `review`를 포함한 스키마 오류는 exit 2다(Q06a/b).
+- 설정이 있으면 필수 `history_repo`·`language`, 허용 키, 타입과 enum을 검증한다. 미지 키와 제거된 `review`를 포함한 스키마 오류는 exit 2다(Q06a/b/d).
+- `language`는 `Intl.getCanonicalLocales`가 수락하는 BCP 47 태그이며 기본값·자동 감지가 없다. `watch`는 저장소 루트 기준 `/` glob 배열이고 생략 시 저장소 전체다. 세부 문법은 제품 설계 9절을 따른다(Q06d/e).
 - 캐시 루트: `$PROJECT_HISTORY_HOME` 또는 운영체제별 기본 위치. macOS·Linux·Windows의 정확한 기본값과 기존 `~/.cache/project-history/` 표기 이관은 Q05·Q08에서 확정한다.
 - 현재 코드 저장소: `git remote get-url origin`에서 `<org>/<repo>`.
 
@@ -39,6 +40,8 @@
 
 **공통 플래그**
 `--cwd <dir>` · `--json` · `--verbose` · `--dry-run` (쓰기 명령)
+
+`--dry-run`은 `bundle`, `draft write/discard`, `skip`, `flush`, `entry set-status`, `ask-comment`, `sync`, `init create/config`, `index rebuild`에만 허용한다. 설정·기존 파일과 캐시·Git·GitHub의 읽기 전용 조회는 수행할 수 있지만 디렉터리, 캐시, 인덱스, 번들, 초안, 설정, 로그, 락, 임시 파일을 만들거나 수정하지 않는다. Git 조회의 선택적 인덱스 갱신도 비활성화한다. `clone/fetch/pull/rebase/commit/branch/checkout/push`, 저장소·PR·댓글 생성과 다른 원격 변경도 실행하지 않는다. 성공 결과는 `dry_run`, `command`, `would_change[{scope,action,target}]`, `unverified[]`로 구성하며 만들지 않은 commit id·URL을 반환하지 않는다. 읽기 전용 명령과 `hook *`에 이 플래그를 주면 exit 2다(Q06f).
 
 ---
 
@@ -81,13 +84,13 @@
 ### `template`
 빈 엔트리 마크다운을 stdout에. 자동 채움 필드(`paths`, `deciders`)는 포함하지 않는다.
 
-### `draft write --branch <b> | --pr <N> --file <path>`
-초안 저장. 검증 후 `paths`(diff에서), `deciders`(PR author 또는 현재 사용자)를 채운다. 같은 `id`가 있으면 갱신, 없으면 추가 (브랜치당 여러 초안 가능).
+### `draft write (--branch <b> | --pr <N>) --file <path> [--update-existing <id>]`
+초안 저장. 검증 후 `paths`(diff에서), `deciders`(PR author 또는 현재 사용자)를 채운다. 같은 작업 대상의 같은 `id` local draft만 자동 갱신한다. 다른 작업 대상·원격 기록과 충돌한 새 기록은 `-2`, `-3` 순의 첫 빈 suffix를 사용한다. 원격 기존 기록 수정은 `--update-existing <id>`가 필요하고 입력 id와 같아야 한다(Q07h). 동시 충돌의 재검사는 Q10에서 확정한다.
 ```json
 {"id": "...", "path": "...", "filled": {"paths": ["src/auth/**"], "deciders": ["alice"]},
  "warnings": ["Consequences is short"]}
 ```
-검증 실패 → exit 2. 검사 대상은 frontmatter 필드·허용값, `refs.role ∈ {implements, discusses}`, 본문 섹션과 길이다. Q01(B)에 따라 근거가 부족한 기록도 로컬 및 원격 저장할 수 있으므로, 기존의 모든 섹션 비어 있지 않음·Alternatives 항목 1개 이상을 일률적 저장 조건으로 적용하지 않는다. Q07a: 최소 내용은 결정 내용과 출처이며 이유·대안·결과는 부족함을 표시하고 보완할 수 있다. 선택 이유 부재만으로 저장을 거부하지 않는다. Q07b에 따라 부족한 항목은 메타데이터 목록과 본문 설명으로 표시한다. Q07c: missing은 필수 배열이며 허용값은 rationale/alternatives/consequences다. 부족한 항목만 포함하며 모두 채웠으면 []로 둔다. 필드 누락을 []로 대체하지 않는다. Q07d: URL 없는 대화 출처는 Context의 발언자·날짜·근거 요약으로 표현하며 refs: []를 허용한다. 대화 전체·로컬 트랜스크립트 경로는 저장하지 않는다. refs가 비었다는 이유만으로 출처 없음으로 판정하지 않는다. Q14a: verified_by는 결정자의 명시적인 기록 확인으로만 채우며 PR 머지·질문 답변만으로 자동 채우지 않는다. Q14b: 결정·이유·대안·결과의 의미가 바뀌면 기존 확인을 해제하고 재확인한다. PR URL·상태·서식만 바뀌면 유지한다. Q14c: 실제 확인한 결정자 목록을 저장하며 전원 확인을 요구하지 않는다. 부분 누락 판정·의미 변경 판정·확인 목록 원소 및 증거 표현과 그 외 검증 세부는 후속 확정한다.
+검증 실패 → exit 2. 검사 대상은 frontmatter 필드·허용값, `refs.role ∈ {implements, discusses}`, 본문 섹션과 길이다. Q07i에 따라 미지·중복 key와 YAML anchor·alias·merge key·custom tag도 exit 2다. Q01(B)에 따라 근거가 부족한 기록도 로컬 및 원격 저장할 수 있으므로, 기존의 모든 섹션 비어 있지 않음·Alternatives 항목 1개 이상을 일률적 저장 조건으로 적용하지 않는다. Q07a: 최소 내용은 결정 내용과 출처이며 이유·대안·결과는 부족함을 표시하고 보완할 수 있다. 선택 이유 부재만으로 저장을 거부하지 않는다. Q07b에 따라 부족한 항목은 메타데이터 목록과 본문 설명으로 표시한다. Q07c: missing은 필수 배열이며 허용값은 rationale/alternatives/consequences다. 부족한 항목만 포함하며 모두 채웠으면 []로 둔다. 필드 누락을 []로 대체하지 않는다. Q07d: URL 없는 대화 출처는 Context의 발언자·날짜·근거 요약으로 표현하며 refs: []를 허용한다. 대화 전체·로컬 트랜스크립트 경로는 저장하지 않는다. refs가 비었다는 이유만으로 출처 없음으로 판정하지 않는다. Q07e: id는 `YYYY-MM-<ascii-kebab-slug>`이고 새 ID 충돌은 `-2`, `-3` 순 suffix를 사용한다. Q07f: date는 실제 `YYYY-MM-DD`이고 id prefix와 연·월이 일치해야 한다. 백필 날짜를 모르면 기록일과 Context의 미확인 표시를 사용한다. Q07g: suffix를 제외한 slug는 1–72자이며 초과 입력을 자동 절단하지 않는다. Q07h: 같은 작업 대상의 local draft만 자동 갱신하고 다른 대상·원격 기록은 암묵적으로 덮어쓰지 않는다. Q14a: verified_by는 결정자의 명시적인 기록 확인으로만 채우며 PR 머지·질문 답변만으로 자동 채우지 않는다. Q14b: 결정·이유·대안·결과의 의미가 바뀌면 기존 확인을 해제하고 재확인한다. PR URL·상태·서식만 바뀌면 유지한다. Q14c: 실제 확인한 결정자 목록을 저장하며 전원 확인을 요구하지 않는다. 부분 누락 판정·의미 변경 판정·확인 목록 원소 및 증거 표현과 그 외 검증 세부는 후속 확정한다.
 
 ### `draft show --branch <b> [--id <id>]` → 마크다운
 ### `draft discard --branch <b> [--id <id>]` → `{"discarded": ["..."]}`
@@ -166,8 +169,8 @@ Q13a: 불완전한 기록도 기본 검색에 포함한다. 각 후보에 missin
 ### `init create --repo <org/name> [--private] [--existing]`
 새 저장소 생성(`gh repo create`) 후 골격 push, 또는 `--existing`이면 write 권한 확인. 어느 쪽이든 `history.yml`의 `repos`에 현재 코드 저장소 추가.
 `{"repo": "org/api-history", "created": true, "url": "..."}`
-### `init config --repo <org/name> [--language ko]`
-`.history.yml` 작성. `history_repo`에 `--repo` 값을 기록하고 기본값은 `gate: block`, `write: direct`, `auto_save: true`, `ask: manual`, `agent_hook: false`다. `review`는 쓰지 않으며 입력 설정에 있으면 검증 실패다. v1은 `ask: auto`를 지원하지 않는다. `--language`의 필수 여부는 Q06d에서 확정한다.
+### `init config --repo <org/name> --language <tag>`
+`.history.yml` 작성. `history_repo`와 canonical BCP 47 `language`를 기록하고 기본값은 `gate: block`, `write: direct`, `auto_save: true`, `ask: manual`, `agent_hook: false`다. `review`는 쓰지 않으며 입력 설정에 있으면 검증 실패다. v1은 `ask: auto`를 지원하지 않는다. `--language`가 없거나 유효하지 않으면 파일을 쓰지 않고 exit 2다(Q06d).
 
 ### `config get [key]` → 해석된 설정 JSON
 
