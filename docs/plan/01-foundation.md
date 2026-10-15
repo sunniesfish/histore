@@ -29,7 +29,7 @@ Node.js는 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. g
 ## 남은 상세 계약
 
 1. `config get <key>`의 미존재 key, 오류 객체 code와 필드 경로 표현을 고정한다.
-2. PROJECT_HISTORY_HOME이 없을 때 macOS·Linux·Windows의 기본 캐시 위치를 정한다(Q08).
+2. Q08a 확정: `PROJECT_HISTORY_HOME`이 없으면 단일 루트를 OS 사용자 데이터 디렉터리에 둔다: macOS `~/Library/Application Support/project-history`, Linux·WSL2 `$XDG_DATA_HOME/project-history`(미설정 시 `~/.local/share/project-history`), Windows `%LOCALAPPDATA%\project-history`. 캐시 디렉터리는 정리 도구가 삭제할 수 있어 재생성 불가능한 초안·skip 마커를 보호하기 위해 사용하지 않는다. `%APPDATA%`(roaming)는 쓰지 않는다. 출시 전이므로 `~/.cache` 표기는 이관 없이 교체한다. 경로는 `os.homedir()`·`process.platform`·환경변수로 계산하며 공백·비ASCII 경로를 검증한다.
 3. SSH/HTTPS origin, fork, origin 없음, GitHub Enterprise를 어디까지 지원하는지 정한다.
 4. worktree·심볼릭 링크·상위 탐색 경계·브랜치 경로 인코딩과 Windows 드라이브·UNC·경로 대소문자를 정한다(Q08).
 5. 알 수 없는 명령·플래그, 상충하는 대상 옵션, 누락한 인자의 오류 형식을 고정한다.
@@ -92,4 +92,4 @@ Node.js는 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. g
 - macOS·Linux·Windows에서 동일한 입력이 같은 논리 결과와 종료 코드·출력 스키마를 만드는지 확인.
 - Windows 경로·공백·드라이브·UNC 입력, LF/CRLF, git·gh 자식 프로세스 인자 전달과 파일 락·원자적 교체를 별도 확인.
 
-Q06 fixture는 언어 태그 canonicalization·누락·잘못된 태그, 세 운영체제에서 같은 watch 결과, 금지 패턴, dry-run 전후 파일시스템·Git refs·GitHub 상태 불변을 포함한다. Q08의 기대값은 사용자 선택 뒤 작성한다.
+Q06 fixture는 언어 태그 canonicalization·누락·잘못된 태그, 세 운영체제에서 같은 watch 결과, 금지 패턴, dry-run 전후 파일시스템·Git refs·GitHub 상태 불변을 포함한다. Q08a fixture는 세 운영체제의 기본 루트, `XDG_DATA_HOME` 지정·미지정, `PROJECT_HISTORY_HOME` 우선을 포함한다. Q08b–f의 기대값은 사용자 선택 뒤 작성한다.

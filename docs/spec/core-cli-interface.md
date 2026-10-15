@@ -31,7 +31,7 @@
 - `.history.yml`을 cwd에서 상위로 탐색한다. 없으면 도움말·버전, `init check/create/config`, `doctor`만 허용하고 다른 명령은 exit 1 + hint `run init`이다(Q06c).
 - 설정이 있으면 필수 `history_repo`·`language`, 허용 키, 타입과 enum을 검증한다. 미지 키와 제거된 `review`를 포함한 스키마 오류는 exit 2다(Q06a/b/d).
 - `language`는 `Intl.getCanonicalLocales`가 수락하는 BCP 47 태그이며 기본값·자동 감지가 없다. `watch`는 저장소 루트 기준 `/` glob 배열이고 생략 시 저장소 전체다. 세부 문법은 제품 설계 9절을 따른다(Q06d/e).
-- 캐시 루트: `$PROJECT_HISTORY_HOME` 또는 운영체제별 기본 위치. macOS·Linux·Windows의 정확한 기본값과 기존 `~/.cache/project-history/` 표기 이관은 Q05·Q08에서 확정한다.
+- 캐시 루트: `$PROJECT_HISTORY_HOME` 또는 운영체제별 사용자 데이터 디렉터리: macOS `~/Library/Application Support/project-history`, Linux·WSL2 `$XDG_DATA_HOME/project-history`(미설정 시 `~/.local/share/project-history`), Windows `%LOCALAPPDATA%\project-history` (Q08a).
 - 현재 코드 저장소: `git remote get-url origin`에서 `<org>/<repo>`.
 
 **동시성**

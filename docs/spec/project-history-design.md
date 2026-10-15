@@ -179,7 +179,7 @@ diff만 봐도 이해되는 것은 기록하지 않는다. 검증 질문: *6개�
 
 ### 5.1 구조 (`<cache-root>/`)
 
-`PROJECT_HISTORY_HOME`이 있으면 그 값을 사용한다. 환경변수가 없을 때의 macOS·Linux·Windows별 기본 위치와 기존 문서의 `~/.cache` 표기 이관은 Q05·Q08에서 확정한다.
+`PROJECT_HISTORY_HOME`이 있으면 그 값을 사용한다. 없으면 macOS `~/Library/Application Support/project-history`, Linux·WSL2 `$XDG_DATA_HOME/project-history`(미설정 시 `~/.local/share/project-history`), Windows `%LOCALAPPDATA%\project-history`를 사용한다. 초안·skip 마커는 재생성할 수 없으므로 OS 캐시 디렉터리에 두지 않는다(Q08a).
 
 ```
 repos/<org>/<repo>-history/        # shallow clone (depth 1, sync 때 fetch)
