@@ -36,10 +36,10 @@ Codex의 번들 훅은 설치·활성화만으로 신뢰되지 않으며 사용�
 
 ## 게이트와 PR 연결
 
-- 초안이 있고 auto_save: true이면 최소 요건 검증과 flush 성공 후 통과한다. skip이면 통과한다.
+- 초안이 있고 auto_save: true이면 최소 요건 검증과 flush 성공 후 통과한다. 현재 실질 변경 스냅샷과 일치하는 skip이면 통과한다(Q08f).
 - 최소 요건을 통과한 초안이 있고 auto_save: false이면 전송 제안만 하고 gate 값과 관계없이 코드 도구 실행을 허용한다(Q15b).
 - 네트워크·원격 권한 오류로 전송 실패 시 초안 보존·실패 안내 후 gate 값과 관계없이 코드 작업을 허용하고 다음 자동 저장 시점에 재전송한다(Q15a). 기타 실패는 추가 결정한다.
-- 둘 다 없으면 bundle 생성 후 block은 exit 2와 stderr, warn은 additionalContext로 안내.
+- 유효한 초안·skip이 둘 다 없으면 bundle 생성 후 block은 exit 2와 stderr, warn은 additionalContext로 안내한다. stale skip은 없는 것으로 취급하고 다시 판단하도록 알린다(Q08f).
 - git push --dry-run은 제외한다.
 - PostToolUse는 성공 응답에서 PR URL을 읽어 refs를 갱신·저장하고 요약을 제안한다. 실패는 exit 0과 stderr 로그라는 기존 규약을 따른다.
 

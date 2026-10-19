@@ -31,8 +31,11 @@
 - `.history.yml`을 cwd에서 상위로 탐색한다. 없으면 도움말·버전, `init check/create/config`, `doctor`만 허용하고 다른 명령은 exit 1 + hint `run init`이다(Q06c).
 - 설정이 있으면 필수 `history_repo`·`language`, 허용 키, 타입과 enum을 검증한다. 미지 키와 제거된 `review`를 포함한 스키마 오류는 exit 2다(Q06a/b/d).
 - `language`는 `Intl.getCanonicalLocales`가 수락하는 BCP 47 태그이며 기본값·자동 감지가 없다. `watch`는 저장소 루트 기준 `/` glob 배열이고 생략 시 저장소 전체다. 세부 문법은 제품 설계 9절을 따른다(Q06d/e).
-- 캐시 루트: `$PROJECT_HISTORY_HOME` 또는 운영체제별 사용자 데이터 디렉터리: macOS `~/Library/Application Support/project-history`, Linux·WSL2 `$XDG_DATA_HOME/project-history`(미설정 시 `~/.local/share/project-history`), Windows `%LOCALAPPDATA%\project-history` (Q08a).
+- 데이터 루트: `$PROJECT_HISTORY_HOME` 또는 운영체제별 사용자 데이터 디렉터리: macOS `~/Library/Application Support/project-history`, Linux·WSL2 `$XDG_DATA_HOME/project-history`(미설정 시 `~/.local/share/project-history`), Windows `%LOCALAPPDATA%\project-history` (Q08a).
 - 현재 코드 저장소: `git remote get-url origin`에서 `<org>/<repo>`.
+- 로컬 초안·skip의 저장소 키는 `git rev-parse --git-common-dir`의 정규화된 실제 절대 경로를 UTF-8로 인코딩한 SHA-256 해시다. 브랜치 키는 전체 브랜치 ref의 UTF-8 SHA-256 해시다. 같은 저장소의 worktree는 상태를 공유하고 별도 clone은 분리한다(Q08b).
+- 초안·skip 최초 저장 시 이전 경로를 나중에 지정할 수 있도록 Git 공용 디렉터리의 정규화된 실제 경로를 로컬 메타데이터에 기록한다. 저장소를 옮긴 뒤에는 사용자 명시 요청에 한해 이전 키의 상태를 새 키로 복사하고 원본을 보존한다. 대상 상태가 있으면 덮어쓰지 않는다(Q08c). 재연결 명령 이름·결과 형식은 후속 확정한다.
+- 브랜치 이름이 바뀌면 새 브랜치 키에서 빈 상태로 시작한다. 사용자가 이전 브랜치명을 명시한 경우에만 같은 로컬 저장소의 초안·skip을 새 브랜치 키로 복사한다. 원본은 보존하고 대상 상태가 있으면 덮어쓰지 않는다(Q08d).
 
 **동시성**
 - 캐시 clone에 쓰는 명령(`flush`, `ask-comment`, `sync`)은 저장소별 파일 락을 잡는다.
@@ -67,7 +70,7 @@
 소스 번들 생성. 파일로 쓰고 경로와 요약을 반환한다.
 ```json
 {
-  "path": "<cache-root>/bundles/org__api/feat__jwt.md",
+  "path": "<data-root>/bundles/org__api/feat__jwt.md",
   "sections": {
     "draft": true,
     "transcript": {"sessions": 2, "chars": 8400},
@@ -76,10 +79,21 @@
     "reviews": 5,
     "diff_files": 14
   },
-  "truncated": ["diff"]
+  "truncated": ["diff"],
+  "warnings": [{"code": "transcript_redacted", "count": 2}],
+  "partial": false,
+  "unavailable": []
 }
 ```
-번들 파일은 마크다운, h2 섹션 고정: `## draft` `## transcript` `## issues` `## pr_body` `## reviews` `## diff_summary` `## diff`. 트랜스크립트는 `sessions.jsonl`에서 이 브랜치의 세션을 찾아 user/assistant 텍스트 발화만 추출, 도구 호출·출력은 제외.
+번들 파일은 마크다운, h2 섹션 고정: `## draft` `## transcript` `## issues` `## pr_body` `## reviews` `## diff_summary` `## diff`. 기본 실행에서는 `sessions.jsonl`에서 같은 로컬 저장소·브랜치에 연결된 여러 세션의 user/assistant 텍스트 발화만 추출한다(Q09a). 도구 호출·출력은 제외하며 `--no-transcript`면 발화 추출을 생략한다. 추출한 발화에서 알려진 비밀값 형식은 번들 작성 전에 `[REDACTED]`로 전체 값을 가리고, 결과의 `warnings`에 `transcript_redacted` 코드와 가림 건수를 담는다. 가림이 없으면 `warnings: []`다. 원문·일부 문자를 경고·로그에 넣지 않으며 모든 민감정보의 탐지를 보장하지 않는다(Q09b). 번들은 로컬에 두고 원격 엔트리에는 대화 전체나 트랜스크립트 경로를 저장하지 않는다. 탐지 형식 목록은 후속 결정이다.
+
+Q09f: 번들 생성 시점 기준 최근 30일의 발화를 최대 10만 자까지 수집한다. 한도를 넘으면 최신 발화를 우선한다. 기간·크기 제한으로 빠진 내용이 있으면 번들 본문에 잘림을 알리고 결과의 `truncated`에 `transcript`를 포함한다. 의도적인 제한은 `partial` 또는 `unavailable`로 표시하지 않는다. 발화 경계·문자 수 계산은 후속 구현 계약에서 정한다.
+
+Q09c: 일부 수집원이 실패하면 확보한 자료로 번들을 반환(exit 0)하고 `partial: true`, `unavailable: [{"source":"transcript","reason":"read_failed"}]`처럼 실패 소스와 사유 코드를 표시한다. 원래 자료가 없거나 `--no-transcript`로 생략한 소스는 실패로 표시하지 않는다. 시도한 수집원이 모두 실패해 사용 가능한 자료가 없으면 exit 1이다. 부분 번들에서 작성한 엔트리도 Q07a의 결정 내용·출처 최소 요건을 통과해야 원격 저장할 수 있다.
+
+Q09d: 로컬 브랜치의 diff는 PR 대상 브랜치(없으면 원격 기본 브랜치)와의 merge-base부터 현재 작업 트리까지다. 커밋된 변경과 staged·unstaged 수정·삭제, ignore되지 않은 미추적 파일을 포함한다. 연결된 로컬 작업 트리가 없는 PR은 base/head diff만 사용한다. 기준을 찾지 못하면 Q09c에 따라 diff를 수집 실패로 표시한다. skip의 변경 스냅샷은 같은 범위에서 `watch` 대상만 사용하고 stage 이동·커밋만으로 최종 내용이 같을 때는 유지한다(Q06e·Q08f). 명시적 번들은 전체 변경을 수집한다.
+
+Q09e: 기록 절차에 연결된 번들은 원격 저장 성공이 확인되면 삭제하고, 실패·중단 또는 로컬 초안 작성만 끝난 경우에는 보존한다. 독립 실행한 `bundle` 결과와 원본 트랜스크립트는 이 자동 삭제의 대상이 아니다. 독립 번들의 장기 정리 정책은 후속으로 정한다.
 
 ### `template`
 빈 엔트리 마크다운을 stdout에. 자동 채움 필드(`paths`, `deciders`)는 포함하지 않는다.
@@ -96,7 +110,7 @@
 ### `draft discard --branch <b> [--id <id>]` → `{"discarded": ["..."]}`
 
 ### `skip --branch <b> [--reason "..."] | --clear`
-"결정 없음" 마커. `{"skipped": true, "branch": "...", "reason": "..."}`
+"결정 없음" 마커. 표시 당시 작업의 실질 변경 스냅샷 식별값을 함께 저장한다. 현재 변경이 다르면 마커를 stale로 보고 게이트 통과 조건으로 사용하지 않는다. 다시 skip하면 현재 스냅샷으로 갱신한다(Q08f). `{"skipped": true, "branch": "...", "reason": "..."}`
 
 ---
 
@@ -105,7 +119,7 @@
 ### `flush --branch <b> | --pr <N> [--status proposed|accepted|rejected] [--id <id>]`
 초안을 히스토리 저장소에 반영. 기본 status는 연결된 구현 PR 전체의 상태를 기준으로 판단한다. 하나 이상의 type: pr/role: implements가 모두 merged면 accepted(Q12b), 일부만 merged이고 나머지가 open이면 proposed다. discusses는 판정에서 제외한다. 구현 PR이 없으면 기본 proposed이며 코드 없는 결정의 명시적 accepted 저장은 별도다. Q12c: 구현 PR이 모두 머지 없이 closed면 rejected, 일부 closed와 open 또는 merged가 혼재하면 proposed로 두고 연결 정리를 안내한다. 명시적 --status와 자동 판정 충돌은 후속 확정한다.
 
-동작: 검증 → 캐시 `pull --rebase` → `entries/YYYY/MM/<id>.md` 작성 → 저장하는 새 결정이 accepted일 때만 `supersedes` 대상 엔트리 `status: superseded`로 갱신(Q12a, proposed 저장은 기존 상태 유지) → 커밋(`history: add <id>` / `history: accept <id>`) → `write: direct`면 push, `write: pr`이면 `entry/<id>` 브랜치 push + `gh pr create` → 로컬 초안 삭제 → 인덱스 재빌드.
+동작: 검증 → 캐시 `pull --rebase` → `entries/YYYY/MM/<id>.md` 작성 → 저장하는 새 결정이 accepted일 때만 `supersedes` 대상 엔트리 `status: superseded`로 갱신(Q12a, proposed 저장은 기존 상태 유지) → 커밋(`history: add <id>` / `history: accept <id>`) → `write: direct`면 push, `write: pr`이면 `entry/<id>` 브랜치 push + `gh pr create` → 원격 저장 성공 확인 → 로컬 초안과 해당 기록에 연결된 번들 삭제(Q09e) → 인덱스 재빌드. 실패·중단 시 연결된 번들을 보존한다. PR 모드의 정확한 성공 경계와 부분 성공 복구는 Q10·Q11에서 정한다.
 ```json
 {"flushed": [{"id": "...", "status": "proposed", "path": "entries/2026/09/....md",
               "url": "https://github.com/org/api-history/blob/main/...", "commit": "abc123"}],
@@ -183,7 +197,7 @@ Q13a: 불완전한 기록도 기본 검색에 포함한다. 각 후보에 missin
 `hooks/hooks.json`이 호출하는 명령. stdin으로 각 호스트의 훅 JSON을 읽고 host 식별과 이벤트별 adapter를 거쳐 해당 훅 규약으로 응답한다. 공통 비즈니스 로직과 호스트 adapter를 분리하며 스킬은 이 명령들을 직접 부르지 않는다.
 
 ### `hook session-start`
-1. `sessions.jsonl`에 `{session_id, repo, branch, transcript_path, started_at}` 추가
+1. `sessions.jsonl`에 `{session_id, repo, branch, local_repo_key, branch_key, transcript_path, started_at}` 추가. 로컬 키 2개로 Q09a의 같은 저장소·브랜치 세션을 구분한다.
 2. `sync --timeout 8` (실패해도 계속)
 3. 현재 브랜치 PR과 초안 확인. 연결 PR이 open/merged이고 auto_save: true면 최소 저장 요건 검증 후 전송한다. auto_save: false면 제안만 한다. 연결 PR이 없으면 초안을 유지한다.
 4. 현재 PR의 기록 누락은 안내만 하고 본문·리뷰 번들은 기록 절차에서 수집한다. 대기 질문의 새 답글은 갱신을 제안한다. 전체 과거·최근 PR 누락 검사는 명시적 요청 또는 별도로 켠 검사에서만 수행한다.
@@ -204,11 +218,12 @@ UserPromptSubmit. 마지막 넛지 이후 실질 diff 발생(`git diff --stat` �
 - 최소 저장 요건을 통과한 초안 있음 + auto_save: false → 전송 제안 후 gate 값과 관계없이 exit 0으로 코드 도구 실행 허용(Q15b). 구체 안내 출력 형식은 후속 확정
 - 네트워크·원격 권한 오류로 자동 전송 실패 → 초안 보존·실패 안내 후 gate 값과 관계없이 exit 0으로 코드 도구 실행 허용. 다음 자동 저장 시점에 재전송(Q15a). flush 자체의 실패를 성공으로 바꾸지 않으며 허용은 게이트의 판단이다.
 - 검증 실패·기타 오류의 상세 게이트 동작은 Q15에서 확정
-- skip 마커 → exit 0
+- 현재 실질 변경 스냅샷과 일치하는 skip 마커 → exit 0(Q08f)
+- stale skip 마커 → 유효한 skip이 없는 것으로 취급하고 기록 또는 skip 재표시를 안내(Q08f)
 - 둘 다 없음 → `bundle` 생성 → `gate: block`이면 exit 2 + stderr:
   ```
   [history] No decision draft for branch feat/jwt. Run /history record before creating the PR.
-  Sources collected: <cache-root>/bundles/org__api/feat__jwt.md
+  Sources collected: <data-root>/bundles/org__api/feat__jwt.md
   If this branch contains no design decision, run /history skip.
   ```
   `gate: warn`이면 exit 0 + 같은 내용을 `additionalContext`로.

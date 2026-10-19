@@ -23,7 +23,7 @@ Node.js는 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. g
 - --cwd, --json, --verbose, 쓰기 명령의 --dry-run을 명령별로 명시한다.
 - cwd에서 상위로 .history.yml을 탐색한다.
 - origin URL에서 org/repo를 구한다. Git·GitHub 인증은 사용자 git 설정과 gh를 사용한다.
-- PROJECT_HISTORY_HOME 환경변수와 기본 캐시 경로를 해석한다.
+- PROJECT_HISTORY_HOME 환경변수와 기본 데이터 루트를 해석한다.
 - config get [key]는 해석된 설정을 JSON으로 반환한다.
 
 ## 남은 상세 계약
@@ -31,7 +31,7 @@ Node.js는 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. g
 1. `config get <key>`의 미존재 key, 오류 객체 code와 필드 경로 표현을 고정한다.
 2. Q08a 확정: `PROJECT_HISTORY_HOME`이 없으면 단일 루트를 OS 사용자 데이터 디렉터리에 둔다: macOS `~/Library/Application Support/project-history`, Linux·WSL2 `$XDG_DATA_HOME/project-history`(미설정 시 `~/.local/share/project-history`), Windows `%LOCALAPPDATA%\project-history`. 캐시 디렉터리는 정리 도구가 삭제할 수 있어 재생성 불가능한 초안·skip 마커를 보호하기 위해 사용하지 않는다. `%APPDATA%`(roaming)는 쓰지 않는다. 출시 전이므로 `~/.cache` 표기는 이관 없이 교체한다. 경로는 `os.homedir()`·`process.platform`·환경변수로 계산하며 공백·비ASCII 경로를 검증한다.
 3. SSH/HTTPS origin, fork, origin 없음, GitHub Enterprise를 어디까지 지원하는지 정한다.
-4. worktree·심볼릭 링크·상위 탐색 경계·브랜치 경로 인코딩과 Windows 드라이브·UNC·경로 대소문자를 정한다(Q08).
+4. Q08b의 로컬 저장소·브랜치 키와 Q08c/d의 명시적 상태 재연결을 적용한다. detached HEAD·상위 탐색 경계와 Windows 드라이브·UNC·경로 대소문자의 후속 처리는 Q08에서 정한다.
 5. 알 수 없는 명령·플래그, 상충하는 대상 옵션, 누락한 인자의 오류 형식을 고정한다.
 
 ## Q06 확정 설정·오류 계약
@@ -92,4 +92,30 @@ Node.js는 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. g
 - macOS·Linux·Windows에서 동일한 입력이 같은 논리 결과와 종료 코드·출력 스키마를 만드는지 확인.
 - Windows 경로·공백·드라이브·UNC 입력, LF/CRLF, git·gh 자식 프로세스 인자 전달과 파일 락·원자적 교체를 별도 확인.
 
-Q06 fixture는 언어 태그 canonicalization·누락·잘못된 태그, 세 운영체제에서 같은 watch 결과, 금지 패턴, dry-run 전후 파일시스템·Git refs·GitHub 상태 불변을 포함한다. Q08a fixture는 세 운영체제의 기본 루트, `XDG_DATA_HOME` 지정·미지정, `PROJECT_HISTORY_HOME` 우선을 포함한다. Q08b–f의 기대값은 사용자 선택 뒤 작성한다.
+Q06 fixture는 언어 태그 canonicalization·누락·잘못된 태그, 세 운영체제에서 같은 watch 결과, 금지 패턴, dry-run 전후 파일시스템·Git refs·GitHub 상태 불변을 포함한다. Q08a fixture는 세 운영체제의 기본 루트, `XDG_DATA_HOME` 지정·미지정, `PROJECT_HISTORY_HOME` 우선을 포함한다. detached HEAD와 경로 정규화의 남은 기대값은 후속 결정 뒤 작성한다.
+
+## Q08b 확정: 로컬 저장소·브랜치 키
+
+- `git rev-parse --git-common-dir`이 가리키는 디렉터리를 절대 경로로 해석하고 실제 경로로 정규화해 로컬 저장소를 식별한다. worktree의 개별 Git 디렉터리가 아닌 공용 Git 디렉터리를 사용한다.
+- 로컬 초안과 skip의 저장소 키는 이 경로의 UTF-8 바이트에 대한 SHA-256 해시다. 브랜치 키는 전체 브랜치 ref(`refs/heads/...`)의 UTF-8 바이트에 대한 SHA-256 해시다. 두 키 모두 64자리 소문자 16진수이며 이름을 경로 구성 요소로 직접 사용하지 않는다.
+- 동일 저장소의 worktree와 심볼릭 링크 경유 접근은 같은 저장소·브랜치 키를 사용한다. 별도 clone은 원격이 같아도 다른 저장소 키를 사용한다. 해시 키는 저장 경로에만 쓰며 출력에는 사람이 읽을 수 있는 저장소·브랜치 이름을 유지한다.
+- detached HEAD, OS별 경로 대소문자 및 드라이브·UNC 정규화의 세부 규칙은 후속 Q08 결정에서 정한다.
+
+Q08b fixture는 동일 저장소의 두 worktree·심볼릭 링크 경유 접근이 같은 키를 만들고, 같은 원격의 별도 clone과 다른 브랜치가 다른 키를 만드는지 확인한다.
+
+## Q08c 확정: 저장소 이동 후 상태 재연결
+
+- 초안·skip을 처음 저장할 때 로컬 저장소 키와 정규화된 실제 Git 공용 디렉터리 절대 경로를 메타데이터에 함께 기록한다. 이전 경로가 더 이상 존재하지 않아도 저장된 경로로 원본 상태를 찾을 수 있어야 한다.
+- 이동 후에는 새 위치의 Git 공용 디렉터리로 새 저장소 키를 계산한다. 이전 경로를 사용자가 명시적으로 지정하기 전까지 이전 초안·skip을 자동 연결하지 않는다. 원격 URL과 브랜치명이 같아도 별도 clone일 수 있다.
+- 명시적 재연결은 이전 키의 초안·skip을 새 키로 복사하고 원본은 보존한다. 이전 상태가 없거나 새 키에 상태가 이미 있으면 오류를 반환하고 어느 쪽도 변경하지 않는다. 부분 복사 실패 시 새 키에 불완전한 상태를 남기지 않는다.
+- 이전 경로를 지정하는 명령 이름과 결과 형식, 원본을 정리할 시점은 후속 계약에서 정한다.
+
+Q08c fixture는 저장소 이동 뒤 원본 보존, 같은 원격의 별도 clone 자동 연결 금지, 명시적 재연결 성공, 대상 상태 충돌과 부분 복사 실패 시 불변을 확인한다.
+
+## Q08d 확정: 브랜치 이름 변경
+
+- 브랜치 이름이 바뀌면 새 `refs/heads/...`에서 다른 브랜치 키가 계산된다. 이전 이름의 초안·skip은 이전 키에 남고 새 브랜치는 빈 상태로 시작한다. Git 기록만으로 이름 변경을 추론해 자동 연결하지 않는다.
+- 사용자가 이전 브랜치명을 명시하고 현재 브랜치로 재연결을 요청하면, 같은 로컬 저장소 키 안에서 이전 키의 초안·skip을 새 키로 복사한다. 원본은 보존한다. 대상에 기존 초안·skip이 있거나 원본에 복구할 상태가 없으면 변경 없이 오류를 반환한다.
+- 재연결 명령 이름·결과 형식과 원본 정리는 Q08c의 후속 계약과 함께 정한다.
+
+Q08d fixture는 이름 변경 후 새 키가 비어 있는 상태, 명시적 복사, 원본 보존, 대상 충돌·원본 부재 시 불변을 확인한다.

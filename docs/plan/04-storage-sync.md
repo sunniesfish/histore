@@ -29,7 +29,7 @@
 
 ## flush의 기존 처리 순서
 
-검증 → pull --rebase → 엔트리 작성 → 새 결정이 accepted인 경우에만 supersedes 대상 갱신 → commit → direct이면 push, pr이면 엔트리 브랜치 push 및 PR 생성 → 초안 삭제 → 인덱스 재빌드.
+검증 → pull --rebase → 엔트리 작성 → 새 결정이 accepted인 경우에만 supersedes 대상 갱신 → commit → direct이면 push, pr이면 엔트리 브랜치 push 및 PR 생성 → 원격 저장 성공 확인 → 초안과 연결된 로컬 번들 삭제 → 인덱스 재빌드. 저장 실패·중단 시 번들은 재시도를 위해 보존한다(Q09e). PR 모드의 정확한 성공 기준과 일부 성공 시 정리는 Q10·Q11에서 상세화한다.
 
 입력은 branch 또는 PR, 선택 status·id다. 결과는 flushed 목록과 mode이며 각 항목은 id/status/path/url/commit을 담는다.
 
@@ -43,6 +43,7 @@
 | commit | history 메시지 규격 | 다중 엔트리 묶음, 변경 없음, 사용자 git 설정 실패 |
 | push | 실패 시 로컬 커밋 유지 | 다음 실행의 중복 방지·복구 안내 |
 | 초안 삭제 | 원격 반영 뒤 삭제 | PR 모드의 성공 기준, 일부 성공 시 보존 범위 |
+| 번들 삭제 | 연결된 기록의 원격 저장 성공 확인 뒤 삭제(Q09e) | 실패·중단 시 보존, PR 모드의 성공 기준과 재실행 정리 |
 | 인덱스 갱신 | 반영 뒤 재빌드 | push 성공·인덱스 실패의 응답과 재실행 |
 
 ## 상태 전이

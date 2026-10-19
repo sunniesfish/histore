@@ -177,7 +177,7 @@ diff만 봐도 이해되는 것은 기록하지 않는다. 검증 질문: *6개�
 
 ## 5. 로컬 캐시와 인덱스
 
-### 5.1 구조 (`<cache-root>/`)
+### 5.1 구조 (`<data-root>/`)
 
 `PROJECT_HISTORY_HOME`이 있으면 그 값을 사용한다. 없으면 macOS `~/Library/Application Support/project-history`, Linux·WSL2 `$XDG_DATA_HOME/project-history`(미설정 시 `~/.local/share/project-history`), Windows `%LOCALAPPDATA%\project-history`를 사용한다. 초안·skip 마커는 재생성할 수 없으므로 OS 캐시 디렉터리에 두지 않는다(Q08a).
 
@@ -185,10 +185,19 @@ diff만 봐도 이해되는 것은 기록하지 않는다. 검증 질문: *6개�
 repos/<org>/<repo>-history/        # shallow clone (depth 1, sync 때 fetch)
 index/<org>/<repo>-history.json    # frontmatter 인덱스
 index/<org>/<repo>-history.search.json  # 전문 검색 인덱스 (BM25)
-drafts/<org>/<repo>/<branch>/      # 초안 (코드 저장소·브랜치 기준)
-sessions.jsonl                     # 세션 인덱스 (session_id → 브랜치, transcript_path, 시각)
-skip/<org>/<repo>/<branch>         # 결정 없음 마커
+drafts/<local-repo-key>/<branch-key>/  # 초안 (Git 공용 디렉터리·브랜치 기준)
+local-repos/<local-repo-key>.json     # 원래 Git 공용 디렉터리 경로
+sessions.jsonl                     # 세션 인덱스 (session_id → 저장소·브랜치 키, transcript_path, 시각)
+skip/<local-repo-key>/<branch-key>   # 결정 없음 마커
 ```
+
+Q08b: `<local-repo-key>`는 `git rev-parse --git-common-dir`의 정규화된 실제 절대 경로를 UTF-8로 인코딩한 SHA-256 해시다. `<branch-key>`는 전체 브랜치 ref(`refs/heads/...`)의 UTF-8 SHA-256 해시다. 키는 각각 64자리 소문자 16진수로 기록한다. 같은 저장소의 worktree와 심볼릭 링크 경유 접근은 초안·skip을 공유하고, 같은 원격의 별도 clone은 공유하지 않는다.
+
+Q08c: 초안·skip을 처음 저장할 때 `local-repos/<local-repo-key>.json`에 정규화된 실제 Git 공용 디렉터리 경로를 기록한다. 저장소를 이동하면 새 경로로 다른 키가 만들어진다. 사용자가 메타데이터에 기록된 이전 경로를 명시적으로 선택한 경우에만 이전 키의 초안·skip을 새 키로 복사한다. 원본은 보존하고, 새 키에 이미 상태가 있거나 원본에 복구할 상태가 없으면 아무것도 변경하지 않는다. 원격·브랜치 일치만으로 자동 연결하지 않는다.
+
+Q08d: 브랜치 이름 변경 후 새 브랜치는 다른 키에서 빈 상태로 시작한다. 사용자가 이전 브랜치명을 명시했을 때만 같은 로컬 저장소 키 안에서 이전 초안·skip을 새 키로 복사한다. 원본은 보존하고 대상 상태가 있으면 덮어쓰지 않는다. detached HEAD와 오래된 상태 정리는 후속으로 남긴다.
+
+Q08f: skip에는 표시 당시 작업의 실질 변경 스냅샷 식별값을 저장한다. 현재 변경 내용과 다르면 stale로 취급해 게이트를 통과시키지 않는다. 마커는 보존하고, 사용자가 다시 skip하면 기준을 현재 변경으로 갱신한다. 실질 변경 범위는 Q09d를 따르며 스냅샷 계산 세부는 후속으로 정한다.
 
 ### 5.2 frontmatter 인덱스
 
@@ -240,7 +249,7 @@ skip/<org>/<repo>/<branch>         # 결정 없음 마커
 - "왜"는 세션 대화와 사람이 쓴 GitHub 텍스트(이슈·PR 본문·리뷰)에 있다. 코드에는 없다.
 - 캡처는 세션 안에서만. 실행 단위는 브랜치(PR 하나 분량). 커밋 단위 아님.
 - 초안은 **브랜치별로 세션을 가로질러 누적.** 결정을 인지한 순간 로컬 초안 생성·갱신, PR 시점에 flush.
-- 트랜스크립트는 로컬에서만 읽고, 저장소에는 추출된 결정만 올라간다.
+- 트랜스크립트는 기록 절차에서 같은 로컬 저장소·브랜치에 연결된 여러 세션의 사용자·에이전트 발화만 로컬 번들로 추출한다(Q09a). 기본 수집은 최근 30일·최대 10만 자이며 제한으로 제외된 발화는 잘림을 표시한다(Q09f). 알려진 비밀값 형식은 번들 작성 전에 전체 값을 `[REDACTED]`로 가리고 가림 건수를 경고한다(Q09b). 도구 호출·출력은 제외하고 `--no-transcript`로 생략할 수 있다. 저장소에는 추출된 결정만 올라간다.
 
 ### 7.1.1 자동 저장 정책 (Q02 확정)
 
@@ -273,10 +282,18 @@ skip/<org>/<repo>/<branch>         # 결정 없음 마커
 
 모든 경로가 이것으로 재료를 모은다.
 
+Q09c: 일부 수집원이 실패해도 사용 가능한 자료로 로컬 번들을 만든다. 실패한 소스는 원래 자료가 없는 경우와 구분해 `unavailable`에 표시하고 누락 내용을 추측하지 않는다. 모두 실패해 사용 가능한 자료가 없으면 번들 생성 오류다. 원격 저장은 번들의 완성도와 별개로 결정 내용·출처의 최소 요건(Q07a)을 검증한다.
+
+Q09d: 로컬 브랜치의 diff는 PR이 있으면 그 대상 브랜치, 없으면 원격 기본 브랜치와의 merge-base부터 현재 작업 트리까지 수집한다. 커밋·staged·unstaged 수정·삭제와 ignore되지 않은 미추적 파일을 포함한다. 외부 PR은 base/head diff만 수집한다. 기준을 찾지 못하면 Q09c의 수집 실패로 표시한다. skip 스냅샷도 이 범위를 사용하되 자동 판정에는 `watch` 범위를 적용한다(Q06e). 명시적 번들은 전체 변경을 수집하고, 커밋·stage 이동만으로 최종 변경 내용이 같다면 skip 유효성을 유지한다(Q08f).
+
+Q09e: 기록 절차에 연결된 로컬 번들은 해당 기록의 원격 저장 성공이 확인된 뒤 삭제한다. 실패·중단 또는 로컬 초안 작성만 끝난 경우에는 재시도를 위해 보존한다. 독립 생성 번들과 원본 트랜스크립트는 이 삭제 대상에 포함하지 않는다. PR 쓰기 모드의 성공 경계는 Q10·Q11에서 상세화한다.
+
+Q09f: 번들 생성 시점 기준 최근 30일에 속하는 발화를 최대 10만 자까지 담고 최신 발화를 우선한다. 기간 또는 크기 제한으로 빠진 내용이 있으면 번들과 `truncated`에 `transcript`를 표시한다. 의도적인 제한은 수집 실패(`partial`, `unavailable`)와 구분한다.
+
 | 소스 | 얻는 법 | 표시 |
 |---|---|---|
 | 로컬 초안 | drafts/ | 그대로 |
-| 세션 트랜스크립트 | sessions.jsonl → 발화만 추출 | 그대로 |
+| 세션 트랜스크립트 | sessions.jsonl에서 같은 로컬 저장소·브랜치의 여러 세션 → 사용자·에이전트 발화 추출(Q09a), 알려진 비밀값 가림(Q09b) | 로컬 번들에만 포함, 가림 경고 |
 | 연결 이슈 | closing issues, `Closes #N`, 브랜치명 패턴 | 그대로, refs discusses |
 | PR 본문 | gh pr view | 그대로, refs implements |
 | 리뷰 스레드 | gh api | 그대로 |
@@ -302,7 +319,7 @@ skip/<org>/<repo>/<branch>         # 결정 없음 마커
 - 초안 있음 + auto_save: true → 최소 저장 요건 검증 → `proposed` 전송 → 성공 시 통과
 - 최소 저장 요건을 통과한 초안 있음 + auto_save: false → 전송 제안만 수행 → gate 값과 관계없이 코드 도구 실행 허용(Q15b)
 - 네트워크·원격 권한 오류로 전송 실패 → 초안 보존·실패 안내 → gate 값과 관계없이 코드 도구 실행 허용. 다음 자동 저장 시점에 재전송(Q15a)
-- skip 마커 → 통과
+- 현재 변경 스냅샷과 일치하는 skip 마커 → 통과. stale skip은 없는 것으로 취급하고 재판단 안내(Q08f)
 - 없음 → 번들 생성 → exit 2, stderr로 "`/history record` 실행, 참고: <번들 경로>" → 에이전트가 기록 후 재시도
 - 모드: `block`(기본) / `warn`(exit 0 + additionalContext)
 
