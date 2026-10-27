@@ -31,7 +31,7 @@ Node.js는 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. g
 1. `config get <key>`의 미존재 key, 오류 객체 code와 필드 경로 표현을 고정한다.
 2. Q08a 확정: `PROJECT_HISTORY_HOME`이 없으면 단일 루트를 OS 사용자 데이터 디렉터리에 둔다: macOS `~/Library/Application Support/project-history`, Linux·WSL2 `$XDG_DATA_HOME/project-history`(미설정 시 `~/.local/share/project-history`), Windows `%LOCALAPPDATA%\project-history`. 캐시 디렉터리는 정리 도구가 삭제할 수 있어 재생성 불가능한 초안·skip 마커를 보호하기 위해 사용하지 않는다. `%APPDATA%`(roaming)는 쓰지 않는다. 출시 전이므로 `~/.cache` 표기는 이관 없이 교체한다. 경로는 `os.homedir()`·`process.platform`·환경변수로 계산하며 공백·비ASCII 경로를 검증한다.
 3. SSH/HTTPS origin, fork, origin 없음, GitHub Enterprise를 어디까지 지원하는지 정한다.
-4. Q08b의 로컬 저장소·브랜치 키와 Q08c/d의 명시적 상태 재연결을 적용한다. detached HEAD·상위 탐색 경계와 Windows 드라이브·UNC·경로 대소문자의 후속 처리는 Q08에서 정한다.
+4. Q08b의 로컬 저장소·브랜치 키와 Q08c/d의 명시적 상태 재연결을 적용한다. detached HEAD의 브랜치 상태 쓰기는 Q08e에 따라 거부하고, 오래된 초안·skip은 Q08g에 따라 명시적으로만 정리한다. 상위 탐색 경계와 Windows 드라이브·UNC·경로 대소문자의 후속 처리는 Q08에서 정한다.
 5. 알 수 없는 명령·플래그, 상충하는 대상 옵션, 누락한 인자의 오류 형식을 고정한다.
 
 ## Q06 확정 설정·오류 계약
@@ -41,7 +41,7 @@ Node.js는 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. g
 | 스키마 | `history_repo`, `language` 필수. `write`, `gate`, `auto_save`, `ask`, `agent_hook`, `watch` 선택. 이 키 외에는 허용하지 않고 `review` 제거 | 없음 |
 | 기본값 | `write: direct`, `gate: block`, `auto_save: true`, `ask: manual`, `agent_hook: false`, `watch` 생략 시 저장소 전체 | 없음 |
 | 엄격도 | 미지 키·잘못된 타입·미지원 값은 exit 2. 누락한 선택 키는 기본값 적용 | 오류 객체의 code와 경로 표기 세부 |
-| 설정 없음 | 도움말·버전, `init check/create/config`, `doctor`만 허용. 나머지는 exit 1 + init 안내 | 없음 |
+| 설정 없음 | 도움말·버전, `init check/create/config`, `doctor`, `local list/show/discard`만 허용(Q06g·Q08j). 나머지는 exit 1 + init 안내 | 로컬 상태 출력·오류 세부 |
 | 조회 | `config get`은 해석값과 각 값의 출처(default/file)를 JSON으로 반환 | 단일 key의 미존재 응답 형식 |
 
 허용 타입과 값은 다음과 같다.
@@ -92,14 +92,15 @@ Node.js는 22 이상을 요구하고 지원 중인 LTS 22·24를 검증한다. g
 - macOS·Linux·Windows에서 동일한 입력이 같은 논리 결과와 종료 코드·출력 스키마를 만드는지 확인.
 - Windows 경로·공백·드라이브·UNC 입력, LF/CRLF, git·gh 자식 프로세스 인자 전달과 파일 락·원자적 교체를 별도 확인.
 
-Q06 fixture는 언어 태그 canonicalization·누락·잘못된 태그, 세 운영체제에서 같은 watch 결과, 금지 패턴, dry-run 전후 파일시스템·Git refs·GitHub 상태 불변을 포함한다. Q08a fixture는 세 운영체제의 기본 루트, `XDG_DATA_HOME` 지정·미지정, `PROJECT_HISTORY_HOME` 우선을 포함한다. detached HEAD와 경로 정규화의 남은 기대값은 후속 결정 뒤 작성한다.
+Q06 fixture는 언어 태그 canonicalization·누락·잘못된 태그, 세 운영체제에서 같은 watch 결과, 금지 패턴, dry-run 전후 파일시스템·Git refs·GitHub 상태 불변을 포함한다. Q08a fixture는 세 운영체제의 기본 루트, `XDG_DATA_HOME` 지정·미지정, `PROJECT_HISTORY_HOME` 우선을 포함한다. Q08e fixture는 detached HEAD에서 브랜치 상태 쓰기 거부와 조회·명시적 대상 번들 허용을 확인한다. 경로 정규화의 남은 기대값은 후속 결정 뒤 작성한다.
 
 ## Q08b 확정: 로컬 저장소·브랜치 키
 
 - `git rev-parse --git-common-dir`이 가리키는 디렉터리를 절대 경로로 해석하고 실제 경로로 정규화해 로컬 저장소를 식별한다. worktree의 개별 Git 디렉터리가 아닌 공용 Git 디렉터리를 사용한다.
 - 로컬 초안과 skip의 저장소 키는 이 경로의 UTF-8 바이트에 대한 SHA-256 해시다. 브랜치 키는 전체 브랜치 ref(`refs/heads/...`)의 UTF-8 바이트에 대한 SHA-256 해시다. 두 키 모두 64자리 소문자 16진수이며 이름을 경로 구성 요소로 직접 사용하지 않는다.
 - 동일 저장소의 worktree와 심볼릭 링크 경유 접근은 같은 저장소·브랜치 키를 사용한다. 별도 clone은 원격이 같아도 다른 저장소 키를 사용한다. 해시 키는 저장 경로에만 쓰며 출력에는 사람이 읽을 수 있는 저장소·브랜치 이름을 유지한다.
-- detached HEAD, OS별 경로 대소문자 및 드라이브·UNC 정규화의 세부 규칙은 후속 Q08 결정에서 정한다.
+- Q08i의 오래된 상태 조회를 위해 초안·skip과 함께 원래 전체 브랜치 ref를 로컬 메타데이터에 보존한다. 브랜치가 삭제되어도 해시 키만으로 이름을 역산하지 않는다.
+- detached HEAD에서는 브랜치 ref가 없으므로 브랜치 키를 계산하지 않고 브랜치 상태 쓰기를 거부한다(Q08e). OS별 경로 대소문자 및 드라이브·UNC 정규화의 세부 규칙은 후속 Q08 결정에서 정한다.
 
 Q08b fixture는 동일 저장소의 두 worktree·심볼릭 링크 경유 접근이 같은 키를 만들고, 같은 원격의 별도 clone과 다른 브랜치가 다른 키를 만드는지 확인한다.
 
@@ -119,3 +120,12 @@ Q08c fixture는 저장소 이동 뒤 원본 보존, 같은 원격의 별도 clon
 - 재연결 명령 이름·결과 형식과 원본 정리는 Q08c의 후속 계약과 함께 정한다.
 
 Q08d fixture는 이름 변경 후 새 키가 비어 있는 상태, 명시적 복사, 원본 보존, 대상 충돌·원본 부재 시 불변을 확인한다.
+
+## Q08g 확정: 오래된 로컬 상태 정리
+
+- 브랜치 삭제·이름 변경·저장소 이동·기간 경과·stale skip을 이유로 초안·skip을 자동 삭제하지 않는다. 재연결 뒤 원본 상태도 명시적 정리 전까지 보존한다.
+- Q08i: 현재 브랜치 밖의 상태까지 로컬 저장소 원래 경로·키, 브랜치 ref·키, 초안 ID 또는 skip으로 목록화한다. 선택한 초안 본문이나 skip 이유·스냅샷을 조회한 뒤, 저장소·브랜치와 초안 ID 또는 skip을 명시한 단일 대상만 삭제한다. 브랜치 삭제·저장소 이동 뒤에도 조회·정리할 수 있어야 한다.
+- 전체 초안·skip 일괄 삭제는 제공하지 않는다. Q08j에 따라 `local list/show/discard`를 사용하고 `show/discard`는 저장소 키·브랜치 키와 초안 ID 또는 skip을 지정한다. `local discard --dry-run`은 삭제 대상을 표시하고 상태를 바꾸지 않는다. Q06g에 따라 이 명령은 설정·현재 Git 저장소·원격 연결 없이 실행할 수 있다. 정확한 출력·오류 형식은 후속 계약에서 정한다.
+- 원격 저장 성공이 확인된 기록의 연결 초안·번들 삭제는 Q09e의 성공 처리로 유지한다. `cache clear`는 초안·skip을 삭제하지 않는다.
+
+Q08g/i fixture는 삭제·이름 변경된 브랜치, 이동된 저장소, 오래된 초안·stale skip이 자동 정리되지 않는지와 목록·내용 조회, 단일 대상 삭제, 대상 외 상태 보존을 확인한다.

@@ -28,14 +28,19 @@
 - 트랜스크립트 원문 노출. 번들에는 발화 텍스트만 추출한다.
 
 **설정 해석**
-- `.history.yml`을 cwd에서 상위로 탐색한다. 없으면 도움말·버전, `init check/create/config`, `doctor`만 허용하고 다른 명령은 exit 1 + hint `run init`이다(Q06c).
+- `.history.yml`을 cwd에서 상위로 탐색한다. 없으면 도움말·버전, `init check/create/config`, `doctor`, `local list/show/discard`만 허용한다. 이 로컬 상태 명령은 현재 Git 저장소·origin·GitHub 인증도 요구하지 않는다(Q06g·Q08j). 다른 명령은 exit 1 + hint `run init`이다(Q06c).
 - 설정이 있으면 필수 `history_repo`·`language`, 허용 키, 타입과 enum을 검증한다. 미지 키와 제거된 `review`를 포함한 스키마 오류는 exit 2다(Q06a/b/d).
 - `language`는 `Intl.getCanonicalLocales`가 수락하는 BCP 47 태그이며 기본값·자동 감지가 없다. `watch`는 저장소 루트 기준 `/` glob 배열이고 생략 시 저장소 전체다. 세부 문법은 제품 설계 9절을 따른다(Q06d/e).
 - 데이터 루트: `$PROJECT_HISTORY_HOME` 또는 운영체제별 사용자 데이터 디렉터리: macOS `~/Library/Application Support/project-history`, Linux·WSL2 `$XDG_DATA_HOME/project-history`(미설정 시 `~/.local/share/project-history`), Windows `%LOCALAPPDATA%\project-history` (Q08a).
 - 현재 코드 저장소: `git remote get-url origin`에서 `<org>/<repo>`.
 - 로컬 초안·skip의 저장소 키는 `git rev-parse --git-common-dir`의 정규화된 실제 절대 경로를 UTF-8로 인코딩한 SHA-256 해시다. 브랜치 키는 전체 브랜치 ref의 UTF-8 SHA-256 해시다. 같은 저장소의 worktree는 상태를 공유하고 별도 clone은 분리한다(Q08b).
+- 초안·skip의 메타데이터에 원래 전체 브랜치 ref를 함께 보존해 브랜치 삭제·이름 변경 후에도 로컬 상태 목록에 표시한다(Q08i).
 - 초안·skip 최초 저장 시 이전 경로를 나중에 지정할 수 있도록 Git 공용 디렉터리의 정규화된 실제 경로를 로컬 메타데이터에 기록한다. 저장소를 옮긴 뒤에는 사용자 명시 요청에 한해 이전 키의 상태를 새 키로 복사하고 원본을 보존한다. 대상 상태가 있으면 덮어쓰지 않는다(Q08c). 재연결 명령 이름·결과 형식은 후속 확정한다.
 - 브랜치 이름이 바뀌면 새 브랜치 키에서 빈 상태로 시작한다. 사용자가 이전 브랜치명을 명시한 경우에만 같은 로컬 저장소의 초안·skip을 새 브랜치 키로 복사한다. 원본은 보존하고 대상 상태가 있으면 덮어쓰지 않는다(Q08d).
+- detached HEAD에서는 현재 브랜치 ref가 없으므로 브랜치 키를 만들지 않는다. 현재 체크아웃의 초안·skip 등 브랜치 상태 쓰기와 훅의 해당 자동 쓰기는 실행하지 않고 브랜치 전환을 안내한다. 조회 및 명시적 브랜치·PR 대상의 `bundle`은 허용하며 HEAD SHA를 임시 키로 사용하지 않는다(Q08e). 명령별 오류·훅 출력은 후속 확정한다.
+- 브랜치 삭제·이름 변경·저장소 이동·기간 경과·stale skip만으로 로컬 초안·skip을 삭제하지 않는다. 사용자가 대상과 내용을 확인한 뒤 명시적으로 정리한다(Q08g). 원격 저장 성공 후 연결 초안·번들 삭제는 Q09e를 따른다. 정리 명령과 미리보기 출력은 후속 확정한다.
+- 같은 브랜치에서 초안과 skip은 공존하지 않는다. skip이 있으면 stale 상태라도 `skip --clear` 전의 `draft write`를 거부하고, 초안이 하나라도 있으면 모두 처리하기 전의 skip 표시를 거부한다. 충돌 시 기존 상태를 자동 삭제하지 않는다(Q08h).
+- 로컬 상태 정리는 `local list/show/discard`로 현재 브랜치 밖의 저장소·브랜치까지 목록화하고 초안 본문 또는 skip 이유·스냅샷을 조회한 뒤, 로컬 저장소·브랜치 키와 단일 초안 ID 또는 skip을 지정해 삭제한다(Q08i/j). 설정 없이 접근할 수 있으며(Q06g), 정확한 출력·오류 형식은 후속 확정한다.
 
 **동시성**
 - 캐시 clone에 쓰는 명령(`flush`, `ask-comment`, `sync`)은 저장소별 파일 락을 잡는다.
@@ -44,7 +49,7 @@
 **공통 플래그**
 `--cwd <dir>` · `--json` · `--verbose` · `--dry-run` (쓰기 명령)
 
-`--dry-run`은 `bundle`, `draft write/discard`, `skip`, `flush`, `entry set-status`, `ask-comment`, `sync`, `init create/config`, `index rebuild`에만 허용한다. 설정·기존 파일과 캐시·Git·GitHub의 읽기 전용 조회는 수행할 수 있지만 디렉터리, 캐시, 인덱스, 번들, 초안, 설정, 로그, 락, 임시 파일을 만들거나 수정하지 않는다. Git 조회의 선택적 인덱스 갱신도 비활성화한다. `clone/fetch/pull/rebase/commit/branch/checkout/push`, 저장소·PR·댓글 생성과 다른 원격 변경도 실행하지 않는다. 성공 결과는 `dry_run`, `command`, `would_change[{scope,action,target}]`, `unverified[]`로 구성하며 만들지 않은 commit id·URL을 반환하지 않는다. 읽기 전용 명령과 `hook *`에 이 플래그를 주면 exit 2다(Q06f).
+`--dry-run`은 `bundle`, `draft write/discard`, `skip`, `flush`, `entry set-status`, `ask-comment`, `sync`, `init create/config`, `index rebuild`, `local discard`에만 허용한다. 설정·기존 파일과 캐시·Git·GitHub의 읽기 전용 조회는 수행할 수 있지만 디렉터리, 캐시, 인덱스, 번들, 초안, 설정, 로그, 락, 임시 파일을 만들거나 수정하지 않는다. Git 조회의 선택적 인덱스 갱신도 비활성화한다. `clone/fetch/pull/rebase/commit/branch/checkout/push`, 저장소·PR·댓글 생성과 다른 원격 변경도 실행하지 않는다. 성공 결과는 `dry_run`, `command`, `would_change[{scope,action,target}]`, `unverified[]`로 구성하며 만들지 않은 commit id·URL을 반환하지 않는다. 읽기 전용 명령과 `hook *`에 이 플래그를 주면 exit 2다(Q06f).
 
 ---
 
@@ -104,6 +109,7 @@ Q09e: 기록 절차에 연결된 번들은 원격 저장 성공이 확인되면 
 
 ### `draft write (--branch <b> | --pr <N>) --file <path> [--update-existing <id>]`
 초안 저장. 입력 검증(`paths`·`deciders` 생략 허용) → 입력에 없는 필드만 `paths`(diff에서), `deciders`(PR author, PR 없으면 현재 gh 인증 사용자)로 채움 → 최종 스키마 검증 순으로 처리한다. `filled`에는 실제로 채운 필드만 담는다(Q07o). 같은 작업 대상의 같은 `id` local draft만 자동 갱신한다. 다른 작업 대상·원격 기록과 충돌한 새 기록은 `-2`, `-3` 순의 첫 빈 suffix를 사용한다. 원격 기존 기록 수정은 `--update-existing <id>`가 필요하고 입력 id와 같아야 한다(Q07h). 동시 충돌의 재검사는 Q10에서 확정한다.
+대상 브랜치에 skip이 있으면 stale 여부와 관계없이 초안을 쓰지 않고 `skip --clear`를 안내한다(Q08h).
 ```json
 {"id": "...", "path": "...", "filled": {"paths": ["src/auth/**"], "deciders": ["alice"]},
  "warnings": []}
@@ -115,6 +121,7 @@ Q09e: 기록 절차에 연결된 번들은 원격 저장 성공이 확인되면 
 
 ### `skip --branch <b> [--reason "..."] | --clear`
 "결정 없음" 마커. 표시 당시 작업의 실질 변경 스냅샷 식별값을 함께 저장한다. 현재 변경이 다르면 마커를 stale로 보고 게이트 통과 조건으로 사용하지 않는다. 다시 skip하면 현재 스냅샷으로 갱신한다(Q08f). `{"skipped": true, "branch": "...", "reason": "..."}`
+초안이 하나라도 있으면 skip 표시는 거부하고 초안의 저장·삭제를 안내한다. `--clear`는 초안을 변경하지 않는다(Q08h).
 
 ---
 
@@ -239,9 +246,12 @@ UserPromptSubmit. 마지막 넛지 이후 실질 diff 발생(`git diff --stat` �
 
 ## 7. 내부·유지보수 명령 (스킬 비노출)
 
+- `local list` — 저장된 로컬 초안·skip을 원래 저장소 경로·키, 브랜치 ref·키, 초안 ID 또는 skip으로 목록화한다.
+- `local show --repo-key <hash> --branch-key <hash> (--id <id> | --skip)` — 선택한 초안 본문 또는 skip 이유·스냅샷을 조회한다.
+- `local discard --repo-key <hash> --branch-key <hash> (--id <id> | --skip) [--dry-run]` — 지정한 초안 하나 또는 skip 하나만 삭제한다. `--dry-run`은 대상만 보고한다. 설정·현재 Git 저장소 없이도 실행한다(Q06g·Q08i/j). 정확한 결과·오류 객체는 후속 확정한다.
 - `index rebuild` — 인덱스만 재생성
 - `migrate --to <schema>` — 저장소 전체 일괄 마이그레이션, `history.yml`의 `schema` 갱신
-- `cache clear [--repo]` — 캐시 삭제 (초안은 `--include-drafts` 없이는 보존)
+- `cache clear [--repo]` — 캐시 삭제. 초안·skip은 삭제하지 않으며 별도 대상별 조회·정리 흐름을 사용한다(Q08g/i)
 - `doctor` — gh, git, 설정, 캐시, 권한 점검
 
 ---
